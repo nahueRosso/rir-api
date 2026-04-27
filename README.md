@@ -19,6 +19,7 @@ se define la estructura final de routers, schemas y services que se completará
 en `M1`, `M2` y `M3`, manteniendo desde ahora una base ejecutable, testeable
 y apta para trabajo colaborativo.
 
+
 ## Integrantes
 
 | Nombre completo | Legajo | Rol |
@@ -28,11 +29,19 @@ y apta para trabajo colaborativo.
 | Tomás Travaglini | 75714 | Procesamiento de RI |
 | Lorenzo D'Uva | 78176 | Testing / CI / Documentación |
 
+## Requisitos previos
+
+- Python 3.12 o superior
+- [uv](https://docs.astral.sh/uv/) (gestor de paquetes y entornos virtuales)
+
 ## Instalación
 
 ```bash
+# Clonar el repositorio
 git clone https://github.com/nahueRosso/rir-api.git
 cd rir-api
+
+# Crear entorno virtual e instalar dependencias
 uv venv
 uv pip install -e ".[dev]"
 ```
@@ -40,12 +49,14 @@ uv pip install -e ".[dev]"
 ## Ejecución
 
 ```bash
+# Iniciar la API con hot-reload
 uvicorn app.main:app --reload
 ```
 
 Alternativa:
 
 ```bash
+# O usando el modulo directamente
 python -m app.main
 ```
 
@@ -58,7 +69,10 @@ La API queda disponible en:
 ## Testing y calidad
 
 ```bash
+# Ejecutar todos los tests
 uv run pytest -v
+
+# Verificar estilo de codigo
 uv run ruff check app/ tests/
 ```
 
