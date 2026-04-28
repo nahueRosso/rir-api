@@ -17,6 +17,7 @@ dependencies = [
     "uvicorn[standard]",
     "pydantic",
     "pydantic-settings",
+    "marimo",
     "numpy",
     "scipy",
     "matplotlib",
@@ -25,12 +26,14 @@ dependencies = [
     "python-multipart",
 ]
 
+[project.scripts]
+start-marimo = "app.marimo_launcher:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest",
     "httpx",
     "ruff",
-    "marimo",
 ]
 
 [tool.ruff]

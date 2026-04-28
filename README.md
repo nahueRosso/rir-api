@@ -19,6 +19,7 @@ se define la estructura final de routers, schemas y services que se completará
 en `M1`, `M2` y `M3`, manteniendo desde ahora una base ejecutable, testeable
 y apta para trabajo colaborativo.
 
+
 ## Integrantes
 
 | Nombre completo | Legajo | Rol |
@@ -28,11 +29,19 @@ y apta para trabajo colaborativo.
 | Tomás Travaglini | 75714 | Procesamiento de RI |
 | Lorenzo D'Uva | 78176 | Testing / CI / Documentación |
 
+## Requisitos previos
+
+- Python 3.12 o superior
+- [uv](https://docs.astral.sh/uv/) (gestor de paquetes y entornos virtuales)
+
 ## Instalación
 
 ```bash
+# Clonar el repositorio
 git clone https://github.com/nahueRosso/rir-api.git
 cd rir-api
+
+# Crear entorno virtual e instalar dependencias
 uv venv
 uv pip install -e ".[dev]"
 ```
@@ -40,13 +49,21 @@ uv pip install -e ".[dev]"
 ## Ejecución
 
 ```bash
-uvicorn app.main:app --reload
+# Levantar el entorno interactivo de marimo
+uv run start-marimo
 ```
 
 Alternativa:
 
 ```bash
-python -m app.main
+# Abrir el notebook directamente con marimo
+marimo edit docs/marimo_acoustics.py
+```
+
+Si necesitás seguir levantando la API REST:
+
+```bash
+uvicorn app.main:app --reload
 ```
 
 La API queda disponible en:
@@ -58,7 +75,10 @@ La API queda disponible en:
 ## Testing y calidad
 
 ```bash
+# Ejecutar todos los tests
 uv run pytest -v
+
+# Verificar estilo de codigo
 uv run ruff check app/ tests/
 ```
 
@@ -119,44 +139,85 @@ Los módulos principales quedan divididos por dominio:
 ## Diagrama de arquitectura
 
 ```mermaid
-graph TD
-    C[Cliente HTTP] --> R[FastAPI Routers]
+flowchart LR
+    CLIENTE[Cliente HTTP]
+    API[FastAPI app]
 
-    R --> RH[health router]
-    R --> RG[generation router]
-    R --> RP[processing router]
-    R --> RA[acoustics router]
+    CLIENTE --> API
 
-    RH --> SCHC[schemas.common]
-    RG --> SCHG[schemas.generation]
-    RP --> SCHP[schemas.processing]
-    RA --> SCHA[schemas.acoustics]
+    subgraph BASE[Base]
+        RH[health router]
+        SCHC[schemas.common]
+        RH --> SCHC
+    end
 
-    RG --> SG[services.pink_noise<br/>services.sine_sweep]
-    RP --> SP[services.signal_utils<br/>services.filter]
-    RA --> SA[services.acoustic_parameters]
+    subgraph GEN[Generation]
+        RG[generation router]
+        SCHG[schemas.generation]
+        SG[services.pink_noise<br/>services.sine_sweep]
+        G1[generar_ruido_rosa]
+        G2[generar_sine_sweep]
+        G3[reproducir_y_grabar]
 
-    SG --> G1[generar_ruido_rosa]
-    SG --> G2[generar_sine_sweep]
-    SG --> G3[reproducir_y_grabar]
+        RG --> SCHG
+        RG --> SG
+        SG --> G1
+        SG --> G2
+        SG --> G3
+    end
 
-    SP --> P1[cargar_audio]
-    SP --> P2[obtener_ri_desde_sweep]
-    SP --> P3[filtro_octava]
-    SP --> P4[a_escala_log]
-    SP --> P5[sintetizar_ri]
+    subgraph PROC[Processing]
+        RP[processing router]
+        SCHP[schemas.processing]
+        SP[services.signal_utils<br/>services.filter]
+        P1[cargar_audio]
+        P2[obtener_ri_desde_sweep]
+        P3[filtro_octava]
+        P4[a_escala_log]
+        P5[sintetizar_ri]
 
-    SA --> A1[integral_schroeder]
-    SA --> A2[regresion_lineal]
-    SA --> A3[calcular_parametros_acusticos]
-    SA --> A4[metodo_lundeby opcional]
+        RP --> SCHP
+        RP --> SP
+        SP --> P1
+        SP --> P2
+        SP --> P3
+        SP --> P4
+        SP --> P5
+    end
 
-    D[Dependencias externas] --> F[FastAPI]
-    D --> PY[Pydantic]
-    D --> NP[NumPy]
-    D --> SC[SciPy]
-    D --> SD[SoundDevice]
-    D --> SF[SoundFile]
+    subgraph AC[Acoustics]
+        RA[acoustics router]
+        SCHA[schemas.acoustics]
+        SA[services.acoustic_parameters]
+        A1[integral_schroeder]
+        A2[regresion_lineal]
+        A3[calcular_parametros_acusticos]
+        A4[metodo_lundeby]
+
+        RA --> SCHA
+        RA --> SA
+        SA --> A1
+        SA --> A2
+        SA --> A3
+        SA --> A4
+    end
+
+    API --> RH
+    API --> RG
+    API --> RP
+    API --> RA
+
+    classDef entry fill:#1f2937,stroke:#111827,color:#ffffff
+    classDef router fill:#dbeafe,stroke:#2563eb,color:#0f172a
+    classDef schema fill:#dcfce7,stroke:#16a34a,color:#052e16
+    classDef service fill:#fef3c7,stroke:#d97706,color:#451a03
+    classDef fn fill:#f3f4f6,stroke:#6b7280,color:#111827
+
+    class CLIENTE,API entry
+    class RH,RG,RP,RA router
+    class SCHC,SCHG,SCHP,SCHA schema
+    class SG,SP,SA service
+    class G1,G2,G3,P1,P2,P3,P4,P5,A1,A2,A3,A4 fn
 ```
 
 ## Flujo de datos

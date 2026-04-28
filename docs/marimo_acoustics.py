@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.2"
+__generated_with = "0.23.3"
 app = marimo.App(width="medium")
 
 
@@ -11,6 +11,14 @@ def _():
     import numpy as np
 
 
+    return (mo,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    $\int_0^22$
+    """)
     return
 
 
