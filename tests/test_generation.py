@@ -170,7 +170,7 @@ def test_reproducir_y_grabar_forma():
     sin hardware de audio. Para probarlo con hardware real, ejecutar:
         pytest tests/test_generation.py::test_reproducir_y_grabar_forma -v
     """
-    from app.services.signal_utils import reproducir_y_grabar
+    from app.services.play_record import reproducir_y_grabar
 
     fs = 44100
     duracion_grabacion = 3.0
@@ -178,12 +178,13 @@ def test_reproducir_y_grabar_forma():
 
     # --- Caso 1: senal mono (1D) ---
     signal_mono = np.zeros(fs * 2)  # 2 segundos de silencio
+    grabacion_simulada = np.zeros((n_muestras_esperadas, 1), dtype=np.float32)
 
-    grabacion_simulada = np.zeros(n_muestras_esperadas)
-
-    with patch("sounddevice.playrec", return_value=grabacion_simulada) as mock_playrec:
-        with patch("sounddevice.wait"):
-            resultado = reproducir_y_grabar(signal_mono, fs, duracion_grabacion)
+    with patch("sounddevice.check_input_settings"), \
+         patch("sounddevice.check_output_settings"), \
+         patch("sounddevice.playrec", return_value=grabacion_simulada), \
+         patch("sounddevice.wait"):
+        resultado = reproducir_y_grabar(signal_mono, fs, duracion_grabacion)
 
     assert resultado.ndim in (1, 2), "El resultado debe ser mono o estereo"
     assert abs(len(resultado) - n_muestras_esperadas) <= n_muestras_esperadas * 0.01, (
@@ -193,16 +194,17 @@ def test_reproducir_y_grabar_forma():
 
     # --- Caso 2: senal estereo (2D) ---
     signal_estereo = np.zeros((fs * 2, 2))  # 2 segundos estereo
+    grabacion_simulada_estereo = np.zeros((n_muestras_esperadas, 2), dtype=np.float32)
 
-    grabacion_simulada_estereo = np.zeros((n_muestras_esperadas, 2))
-
-    with patch("sounddevice.playrec", return_value=grabacion_simulada_estereo):
-        with patch("sounddevice.wait"):
-            resultado_estereo = reproducir_y_grabar(signal_estereo, fs, duracion_grabacion)
+    with patch("sounddevice.check_input_settings"), \
+         patch("sounddevice.check_output_settings"), \
+         patch("sounddevice.playrec", return_value=grabacion_simulada_estereo), \
+         patch("sounddevice.wait"):
+        resultado_estereo = reproducir_y_grabar(signal_estereo, fs, duracion_grabacion)
 
     assert resultado_estereo.ndim in (1, 2), "El resultado estereo debe ser array valido"
 
     # --- Caso 3: sin dispositivo de audio disponible ---
-    with patch("sounddevice.playrec", side_effect=Exception("No audio device")):
-        with pytest.raises(Exception):
+    with patch("sounddevice.check_input_settings", side_effect=Exception("No audio device")):
+        with pytest.raises(RuntimeError):
             reproducir_y_grabar(signal_mono, fs, duracion_grabacion)
