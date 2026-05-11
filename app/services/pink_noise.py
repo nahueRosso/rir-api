@@ -34,4 +34,19 @@ def generar_ruido_rosa(duracion: float, fs: int) -> np.ndarray:
     np.ndarray
         Senal de ruido rosa normalizada, de longitud ``int(duracion * fs)``.
     """
-    raise NotImplementedError("Implementar en Milestone 1")
+    if duracion <= 0:
+        raise ValueError("La duración debe ser positiva.")
+    if fs <= 0:
+        raise ValueError("La frecuencia de muestreo debe ser positiva.")
+    n_samples = int(duracion * fs)
+    ruido_blanco = np.random.randn(n_samples)
+    espectro = np.fft.rfft(ruido_blanco)
+    freqs = np.fft.rfftfreq(n_samples, d=1 / fs)
+    filtro = np.ones_like(freqs)
+    filtro[1:] = 1 / np.sqrt(freqs[1:])
+    espectro_rosa = espectro * filtro
+    ruido_rosa = np.fft.irfft(espectro_rosa, n=n_samples)
+    max_abs = np.max(np.abs(ruido_rosa))
+    if max_abs > 0:
+        ruido_rosa = ruido_rosa / max_abs
+    return ruido_rosa
