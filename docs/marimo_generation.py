@@ -11,6 +11,33 @@ def _():
     import numpy as np
     import sounddevice as sd
 
+    def generar_ruido_rosa(duracion: float, fs: int) -> np.ndarray:
+        """Genera ruido rosa aproximado mediante filtrado espectral 1/sqrt(f)."""
+        if duracion <= 0:
+            raise ValueError("duracion debe ser positiva")
+        if fs <= 0:
+            raise ValueError("fs debe ser positivo")
+
+        n_samples = int(duracion * fs)
+        if n_samples <= 0:
+            raise ValueError("duracion * fs debe generar al menos una muestra")
+
+        ruido_blanco = np.random.randn(n_samples)
+        espectro = np.fft.rfft(ruido_blanco)
+        freqs = np.fft.rfftfreq(n_samples, d=1 / fs)
+
+        filtro = np.ones_like(freqs)
+        filtro[1:] = 1 / np.sqrt(freqs[1:])
+
+        espectro_rosa = espectro * filtro
+        ruido_rosa = np.fft.irfft(espectro_rosa, n=n_samples)
+
+        max_abs = np.max(np.abs(ruido_rosa))
+        if max_abs > 0:
+            ruido_rosa = ruido_rosa / max_abs
+
+        return ruido_rosa.astype(np.float32)
+
     def generar_sine_sweep(
         f1: float, f2: float, duracion: float, fs: int
     ) -> tuple[np.ndarray, np.ndarray]:
@@ -59,7 +86,7 @@ def _():
 
         return sweep_norm, filtro_inverso_norm
 
-    return generar_sine_sweep, np, sd
+    return generar_ruido_rosa, generar_sine_sweep, np, sd
 
 
 @app.cell
@@ -169,6 +196,48 @@ def _(sd):
     print(dispositivos)
 
     return default_device, dispositivos
+
+
+@app.cell
+def _(generar_ruido_rosa):
+    fs_ruido = 44100
+    duracion_ruido = 2.0
+    ruido_rosa = generar_ruido_rosa(duracion_ruido, fs_ruido)
+
+    print(f"Ruido rosa generado: {ruido_rosa.shape[0]} muestras")
+
+    return duracion_ruido, fs_ruido, ruido_rosa
+
+
+@app.cell
+def _(fs_ruido, ruido_rosa):
+    from pathlib import Path
+
+    import soundfile as sf
+
+    repo_root = Path.cwd()
+    if not (repo_root / "pyproject.toml").exists():
+        candidatos = [repo_root, *repo_root.parents]
+        repo_root = next(
+            (path for path in candidatos if (path / "pyproject.toml").exists()),
+            repo_root,
+        )
+
+    ruta_ruido = repo_root / "data" / "ruido_rosa.wav"
+    ruta_ruido.parent.mkdir(parents=True, exist_ok=True)
+    sf.write(str(ruta_ruido), ruido_rosa, fs_ruido)
+    print(f"Ruido rosa guardado en {ruta_ruido}")
+
+    return ruta_ruido
+
+
+@app.cell
+def _(fs_ruido, ruido_rosa, sd):
+    ganancia = 0.2
+    print(f"Reproduciendo ruido rosa a ganancia {ganancia:.1f}")
+    sd.play(ganancia * ruido_rosa, fs_ruido, blocking=True)
+
+    return ganancia
 
 
 @app.cell
