@@ -1129,6 +1129,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "marimo" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "pydantic" },
@@ -1143,7 +1144,6 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "httpx" },
-    { name = "marimo" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -1152,7 +1152,7 @@ dev = [
 requires-dist = [
     { name = "fastapi" },
     { name = "httpx", marker = "extra == 'dev'" },
-    { name = "marimo", marker = "extra == 'dev'" },
+    { name = "marimo" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "pydantic" },

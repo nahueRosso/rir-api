@@ -9,6 +9,7 @@ def _():
     import marimo as mo
     import matplotlib.pyplot as plt
     import numpy as np
+    import sounddevice as sd
 
     def generar_sine_sweep(
         f1: float, f2: float, duracion: float, fs: int
@@ -58,7 +59,7 @@ def _():
 
         return sweep_norm, filtro_inverso_norm
 
-    return generar_sine_sweep, np
+    return generar_sine_sweep, np, sd
 
 
 @app.cell
@@ -130,8 +131,17 @@ def _(np, sd):
         try:
             sd.check_input_settings(samplerate=fs, channels=channels, dtype="float32")
             sd.check_output_settings(samplerate=fs, channels=channels, dtype="float32")
-            grabacion = sd.playrec(salida, samplerate=fs, channels=channels, dtype="float32")
-            sd.wait()
+            print(
+                f"Reproduciendo y grabando {duracion_grabacion:.2f} s "
+                f"a {fs} Hz con {channels} canal(es)..."
+            )
+            grabacion = sd.playrec(
+                salida,
+                samplerate=fs,
+                channels=channels,
+                dtype="float32",
+                blocking=True,
+            )
         except sd.PortAudioError as exc:
             raise RuntimeError(
                 f"No fue posible acceder a los dispositivos de audio: {exc}"
@@ -151,19 +161,47 @@ def _(np, sd):
 
 
 @app.cell
-def _(generar_sine_sweep, np, reproducir_y_grabar):
+def _(sd):
+    default_device = sd.default.device
+    dispositivos = sd.query_devices()
+
+    print("Dispositivo por defecto (input, output):", default_device)
+    print(dispositivos)
+
+    return default_device, dispositivos
 
 
-    ruido = generar_sine_sweep(20, 20000, 5, 44100)
+@app.cell
+def _(generar_sine_sweep, reproducir_y_grabar):
+    fs = 44100
+    duracion_sweep = 1.0
+    duracion_grabacion = 2.0
+    sweep, filtro_inverso = generar_sine_sweep(20, 20000, duracion_sweep, fs)
+    grabacion = reproducir_y_grabar(sweep, fs, duracion_grabacion)
 
-    fs=44100
-    duracion_grabacion = 7.0
-    tiempo=np.linspace(0, duracion_grabacion, int(fs*duracion_grabacion), endpoint=False)
-    grabacion=reproducir_y_grabar(ruido, fs, duracion_grabacion)
+    return filtro_inverso, fs, grabacion, sweep
 
 
+@app.cell
+def _(fs, grabacion):
+    from pathlib import Path
 
-    return
+    import soundfile as sf
+
+    repo_root = Path.cwd()
+    if not (repo_root / "pyproject.toml").exists():
+        candidatos = [repo_root, *repo_root.parents]
+        repo_root = next(
+            (path for path in candidatos if (path / "pyproject.toml").exists()),
+            repo_root,
+        )
+
+    ruta_salida = repo_root / "data" / "grabacion.wav"
+    ruta_salida.parent.mkdir(parents=True, exist_ok=True)
+    sf.write(str(ruta_salida), grabacion, fs)
+    print(f"Grabacion guardada en {ruta_salida}")
+
+    return ruta_salida, sf
 
 
 if __name__ == "__main__":
