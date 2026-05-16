@@ -1,10 +1,12 @@
 """Tests para los servicios de generacion de senales (Milestone 1)."""
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
 from app.services.pink_noise import generar_ruido_rosa
-from app.services.play_record import reproducir_y_grabar
+from app.services.play_record import guardar_audio, reproducir_y_grabar
 from app.services.sine_sweep import generar_sine_sweep
 
 
@@ -49,6 +51,14 @@ class TestGenerarSineSweep:
         expected_length = int(duracion * fs)
         assert len(sweep) == expected_length
         assert len(filtro_inv) == expected_length
+
+    def test_sine_sweep_lineal_retorna_arrays_normalizados(self):
+        """Verifica que el modo lineal genere senales normalizadas."""
+        sweep, filtro_inv = generar_sine_sweep(100, 1000, 1.0, 8000, "lineal")
+        assert isinstance(sweep, np.ndarray)
+        assert isinstance(filtro_inv, np.ndarray)
+        assert np.max(np.abs(sweep)) <= 1.0
+        assert np.max(np.abs(filtro_inv)) <= 1.0
 
 
 class TestReproducirYGrabar:
@@ -147,3 +157,36 @@ class TestReproducirYGrabar:
                 fs=1000,
                 duracion_grabacion=1.0,
             )
+
+
+class TestGuardarAudio:
+    """Tests para la funcion guardar_audio."""
+
+    def test_guardar_audio_crea_archivo_en_data(self, monkeypatch, tmp_path):
+        """Verifica que la funcion escriba en data/ desde la raiz del repo."""
+        senal = np.array([0.1, -0.1, 0.2], dtype=np.float32)
+        fs = 44100
+        llamadas = {}
+
+        (tmp_path / "subdir").mkdir(parents=True, exist_ok=True)
+        monkeypatch.chdir(tmp_path / "subdir")
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='test'\n", encoding="utf-8")
+
+        def fake_write(path, data, samplerate):
+            llamadas["path"] = path
+            llamadas["data"] = data
+            llamadas["samplerate"] = samplerate
+
+        monkeypatch.setattr("app.services.play_record.sf.write", fake_write)
+
+        ruta = guardar_audio(senal, fs, "mi_audio.wav")
+
+        assert ruta == tmp_path / "data" / "mi_audio.wav"
+        assert Path(llamadas["path"]) == ruta
+        np.testing.assert_array_equal(llamadas["data"], senal)
+        assert llamadas["samplerate"] == fs
+
+    def test_guardar_audio_falla_con_senal_vacia(self):
+        """Verifica que falle con una senal vacia."""
+        with pytest.raises(ValueError, match="signal no puede estar vacia"):
+            guardar_audio(np.array([], dtype=np.float32), 44100)

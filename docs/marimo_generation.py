@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.5"
+__generated_with = "0.23.6"
 app = marimo.App(width="medium")
 
 
@@ -38,9 +38,7 @@ def _():
 
         return ruido_rosa.astype(np.float32)
 
-    def generar_sine_sweep(
-        f1: float, f2: float, duracion: float, fs: int
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def generar_sine_sweep(f1: float, f2: float, duracion: float, fs: int) -> tuple[np.ndarray, np.ndarray]:
         """
         Genera un sine sweep logaritmico y su filtro inverso.
 
@@ -85,6 +83,8 @@ def _():
         filtro_inverso_norm = filtro_inverso / np.max(np.abs(filtro_inverso))
 
         return sweep_norm, filtro_inverso_norm
+
+    
 
     return generar_ruido_rosa, generar_sine_sweep, np, sd
 
@@ -194,8 +194,7 @@ def _(sd):
 
     print("Dispositivo por defecto (input, output):", default_device)
     print(dispositivos)
-
-    return default_device, dispositivos
+    return
 
 
 @app.cell
@@ -205,8 +204,7 @@ def _(generar_ruido_rosa):
     ruido_rosa = generar_ruido_rosa(duracion_ruido, fs_ruido)
 
     print(f"Ruido rosa generado: {ruido_rosa.shape[0]} muestras")
-
-    return duracion_ruido, fs_ruido, ruido_rosa
+    return fs_ruido, ruido_rosa
 
 
 @app.cell
@@ -227,8 +225,7 @@ def _(fs_ruido, ruido_rosa):
     ruta_ruido.parent.mkdir(parents=True, exist_ok=True)
     sf.write(str(ruta_ruido), ruido_rosa, fs_ruido)
     print(f"Ruido rosa guardado en {ruta_ruido}")
-
-    return ruta_ruido
+    return Path, sf
 
 
 @app.cell
@@ -236,8 +233,7 @@ def _(fs_ruido, ruido_rosa, sd):
     ganancia = 0.2
     print(f"Reproduciendo ruido rosa a ganancia {ganancia:.1f}")
     sd.play(ganancia * ruido_rosa, fs_ruido, blocking=True)
-
-    return ganancia
+    return
 
 
 @app.cell
@@ -247,15 +243,14 @@ def _(generar_sine_sweep, reproducir_y_grabar):
     duracion_grabacion = 2.0
     sweep, filtro_inverso = generar_sine_sweep(20, 20000, duracion_sweep, fs)
     grabacion = reproducir_y_grabar(sweep, fs, duracion_grabacion)
-
-    return filtro_inverso, fs, grabacion, sweep
+    return fs, grabacion
 
 
 @app.cell
-def _(fs, grabacion):
-    from pathlib import Path
+def _(Path, fs, grabacion, sf):
+    # from pathlib import Path
 
-    import soundfile as sf
+    # import soundfile as sf
 
     repo_root = Path.cwd()
     if not (repo_root / "pyproject.toml").exists():
@@ -269,8 +264,7 @@ def _(fs, grabacion):
     ruta_salida.parent.mkdir(parents=True, exist_ok=True)
     sf.write(str(ruta_salida), grabacion, fs)
     print(f"Grabacion guardada en {ruta_salida}")
-
-    return ruta_salida, sf
+    return
 
 
 if __name__ == "__main__":
