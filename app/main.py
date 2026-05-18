@@ -1,6 +1,7 @@
 """RIR-API - Room Impulse Response API."""
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import acoustics, generation, health, processing
 from app.schemas.common import AppInfoResponse
@@ -15,6 +16,21 @@ app = FastAPI(
         "y analisis acustico segun ISO 3382."
     ),
     version=settings.app_version,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(health.router)
