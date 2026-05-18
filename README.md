@@ -434,6 +434,93 @@ Reproduce una señal y graba simultáneamente.
 ```
  
 ---
+
+### Grabacion local y desde frontend
+
+La API soporta dos flujos distintos para trabajar con grabaciones:
+
+- grabacion local en la maquina donde corre el backend;
+- upload de un archivo grabado previamente desde un frontend web.
+
+#### Flujo 1: grabacion local con el backend
+
+1. Iniciar la grabacion con `POST /api/v1/generation/recording/start`.
+2. Consultar el estado con `GET /api/v1/generation/recording/status`.
+3. Si hace falta detenerla manualmente, usar `POST /api/v1/generation/recording/stop`.
+4. Descargar el archivo resultante con `GET /api/v1/generation/audio/{nombre_archivo}`.
+
+Ejemplo de inicio:
+
+```json
+{
+  "fs": 44100,
+  "canales": 1,
+  "input_device": 1,
+  "nombre_archivo": "grabacion_m1.wav",
+  "auto_stop_seconds": 60
+}
+```
+
+Detalles del flujo:
+
+- `recording/start` inicia una captura con `sounddevice.InputStream`.
+- `recording/status` devuelve si la grabacion sigue activa, la duracion actual y el ultimo archivo guardado.
+- `recording/stop` es util si se quiere cortar antes del limite configurado.
+- si `auto_stop_seconds` vence, la grabacion se detiene sola y se guarda automaticamente.
+
+Ejemplo de respuesta de `GET /api/v1/generation/recording/status`:
+
+```json
+{
+  "recording": false,
+  "fs": 44100,
+  "canales": 1,
+  "input_device": 1,
+  "nombre_archivo": null,
+  "duracion_actual": 0,
+  "auto_stop_seconds": null,
+  "ultimo_archivo_guardado": "grabacion_m1.wav",
+  "ultimo_motivo_fin": "auto_stop",
+  "ultima_duracion_grabada": 60.0
+}
+```
+
+Ejemplo para detener manualmente:
+
+```json
+{
+  "guardar_audio": true,
+  "incluir_samples": true,
+  "max_points": 2000
+}
+```
+
+Luego el archivo puede descargarse desde:
+
+- `GET /api/v1/generation/audio/grabacion_m1.wav`
+
+#### Flujo 2: grabacion desde un frontend web
+
+Si el audio se captura en el navegador, el backend no controla el microfono directamente. En ese caso el frontend debe enviar el archivo ya grabado a:
+
+- `POST /api/v1/generation/upload-recording`
+
+Este endpoint recibe `multipart/form-data` con:
+
+- `file`: archivo de audio grabado;
+- `nombre_archivo`: opcional, para forzar el nombre final guardado en `data/`.
+
+Ejemplo con `curl`:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/generation/upload-recording \
+  -F "file=@grabacion.webm" \
+  -F "nombre_archivo=grabacion_frontend.webm"
+```
+
+Una vez subido, el archivo queda disponible para descarga mediante:
+
+- `GET /api/v1/generation/audio/grabacion_frontend.webm`
  
 ### M2 — Processing *(pendiente)*
 - `POST /api/v1/processing/load-audio`
