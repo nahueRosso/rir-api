@@ -34,6 +34,23 @@ y apta para trabajo colaborativo.
 - Python 3.12 o superior
 - [uv](https://docs.astral.sh/uv/) (gestor de paquetes y entornos virtuales)
 
+## Configuración de audio
+
+Para ejecutar las pruebas de reproducción y grabación en tiempo real
+se utilizó la siguiente configuración:
+
+| Parámetro | Valor |
+| --- | --- |
+| Dispositivo de entrada | <!-- TODO: completar con nombre del micrófono --> |
+| Dispositivo de salida | <!-- TODO: completar con nombre del parlante/auricular --> |
+| Frecuencia de muestreo | 44100 Hz |
+| Canales | 1 (mono) |
+| Buffer size | <!-- TODO: completar con valor en muestras, ej. 1024 --> |
+
+> Esta configuración puede variar según el sistema. Ajustar los parámetros
+> de `sounddevice` según el hardware disponible antes de ejecutar las pruebas
+> de reproducción y grabación.
+
 ## Instalación
 
 ```bash
@@ -49,21 +66,15 @@ uv pip install -e ".[dev]"
 ## Ejecución
 
 ```bash
-# Levantar el entorno interactivo de marimo
-uv run start-marimo
+# Iniciar la API con hot-reload
+uvicorn app.main:app --reload
 ```
 
 Alternativa:
 
 ```bash
-# Abrir el notebook directamente con marimo
-marimo edit docs/marimo_acoustics.py
-```
-
-Si necesitás seguir levantando la API REST:
-
-```bash
-uvicorn app.main:app --reload
+# O usando el modulo directamente
+python -m app.main
 ```
 
 La API queda disponible en:
@@ -80,6 +91,17 @@ uv run pytest -v
 
 # Verificar estilo de codigo
 uv run ruff check app/ tests/
+```
+
+### Nota sobre el test de audio
+
+`test_reproducir_y_grabar_forma` requiere micrófono y parlante disponibles
+en el sistema. En CI este test se ejecuta con un mock del dispositivo de audio.
+
+Para correrlo localmente con hardware real:
+
+```bash
+uv run pytest tests/test_generation.py::test_reproducir_y_grabar_forma -v
 ```
 
 ## Estructura del proyecto
@@ -109,12 +131,14 @@ rir-api/
 │       ├── __init__.py
 │       ├── pink_noise.py         # Lógica DSP de ruido rosa
 │       ├── sine_sweep.py         # Lógica DSP de sweep logarítmico
+│       ├── play_record.py        # Reproducción y grabación de audio
 │       ├── signal_utils.py       # Utilidades de audio y RI
 │       ├── filter.py             # Filtrado por bandas de octava
 │       └── acoustic_parameters.py# Cálculo de parámetros ISO 3382
 ├── tests/
 │   ├── test_api.py               # Tests de endpoints base
-│   └── test_placeholder.py       # Test mínimo que debe pasar en M0
+│   ├── test_placeholder.py       # Test mínimo que debe pasar en M0
+│   └── test_generation.py        # Tests de generación de señales (M1)
 ├── docs/                         # Documentación adicional
 ├── data/
 │   └── .gitkeep                  # Directorio reservado para datos locales
@@ -154,7 +178,7 @@ flowchart LR
     subgraph GEN[Generation]
         RG[generation router]
         SCHG[schemas.generation]
-        SG[services.pink_noise<br/>services.sine_sweep]
+        SG[services.pink_noise<br/>services.sine_sweep<br/>services.play_record]
         G1[generar_ruido_rosa]
         G2[generar_sine_sweep]
         G3[reproducir_y_grabar]
@@ -255,6 +279,26 @@ flowchart LR
 - `POST /api/v1/acoustics/parameters`
 - `POST /api/v1/acoustics/lundeby`
 
+## Validación M1
+
+Las siguientes validaciones manuales fueron realizadas al completar el milestone.
+
+### Espectro del ruido rosa
+
+<!-- TODO: agregar captura del espectro en Audacity o REW mostrando la pendiente de -3 dB/octava -->
+
+### Espectrograma del sine sweep
+
+<!-- TODO: agregar captura del espectrograma mostrando el barrido logarítmico de f1 a f2 -->
+
+### Convolución sweep × filtro inverso
+
+<!-- TODO: agregar gráfica del resultado de la convolución mostrando el impulso -->
+
+### Prueba de reproducción y grabación
+
+<!-- TODO: agregar captura o gráfica de la prueba real con altavoz y micrófono -->
+
 ## Branching strategy
 
 - `main` protegida — merge solo vía pull request.
@@ -268,8 +312,7 @@ flowchart LR
 
 | Milestone | Estado | Fecha |
 | --- | --- | --- |
-| M0 — Arquitectura | En curso | 28 Abr 2026 |
-| M1 — Generación de señales | Pendiente | 19 May 2026 |
+| M0 — Arquitectura | ✅ Completado | 28 Abr 2026 |
+| M1 — Generación de señales | 🔄 En curso | 19 May 2026 |
 | M2 — Procesamiento de RI | Pendiente | 16 Jun 2026 |
 | M3 — Producto final | Pendiente | 7 Jul 2026 |
-
