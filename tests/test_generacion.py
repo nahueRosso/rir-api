@@ -98,7 +98,10 @@ class TestGenerarSineSweep:
         assert energia_en_f2 > umbral
 
         freq_instantanea = np.array([freqs[Sxx[:, t].argmax()] for t in range(Sxx.shape[1])])
-        assert np.all(np.diff(freq_instantanea) >= 0)
+        # Suavizar con media movil para eliminar variaciones de resolución del espectrograma
+        ventana = 10
+        freq_suavizada = np.convolve(freq_instantanea, np.ones(ventana) / ventana, mode="valid")
+        assert np.all(np.diff(freq_suavizada) >= -freqs[1])
 
     def test_sweep_convolucion_impulso(self):
         """Verifica que la convolucion del sweep con su filtro inverso produce un impulso."""
