@@ -97,9 +97,7 @@ def reproducir_y_grabar(signal: np.ndarray, fs: int, duracion_grabacion: float) 
 
     duracion_signal = signal_2d.shape[0] / fs
     if duracion_grabacion < duracion_signal:
-        raise ValueError(
-            "duracion_grabacion debe ser mayor o igual a la duracion de la senal"
-        )
+        raise ValueError("duracion_grabacion debe ser mayor o igual a la duracion de la senal")
 
     channels = signal_2d.shape[1]
     preroll_samples = int(round(0.5 * fs))
@@ -122,13 +120,9 @@ def reproducir_y_grabar(signal: np.ndarray, fs: int, duracion_grabacion: float) 
             blocking=True,
         )
     except sd.PortAudioError as exc:
-        raise RuntimeError(
-            f"No fue posible acceder a los dispositivos de audio: {exc}"
-        ) from exc
+        raise RuntimeError(f"No fue posible acceder a los dispositivos de audio: {exc}") from exc
     except Exception as exc:
-        raise RuntimeError(
-            f"Error durante la reproduccion y grabacion de audio: {exc}"
-        ) from exc
+        raise RuntimeError(f"Error durante la reproduccion y grabacion de audio: {exc}") from exc
 
     grabacion_array = np.asarray(grabacion, dtype=np.float32)
     if is_mono:

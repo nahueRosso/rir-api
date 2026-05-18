@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import soundfile as sf
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
