@@ -13,6 +13,7 @@ import soundfile as sf
 
 
 def device() -> dict[str, Any]:
+    """Retorna informacion de los dispositivos de audio detectados por PortAudio."""
     default_input, default_output = sd.default.device
     dispositivos = sd.query_devices()
     return {
@@ -23,6 +24,7 @@ def device() -> dict[str, Any]:
 
 
 def divice() -> dict[str, Any]:
+    """Alias legacy de :func:`device` mantenido por compatibilidad."""
     return device()
 
 
@@ -46,6 +48,7 @@ def guardar_audio(signal: np.ndarray, fs: int, nombre_archivo: str = "grabacion.
 
 
 def obtener_repo_root() -> Path:
+    """Ubica la raiz del repositorio buscando ``pyproject.toml`` hacia arriba."""
     repo_root = Path.cwd()
     if not (repo_root / "pyproject.toml").exists():
         candidatos = [repo_root, *repo_root.parents]
@@ -57,6 +60,7 @@ def obtener_repo_root() -> Path:
 
 
 def obtener_ruta_audio(nombre_archivo: str) -> Path:
+    """Construye una ruta segura dentro de ``data/`` para un nombre de archivo simple."""
     if not nombre_archivo or Path(nombre_archivo).name != nombre_archivo:
         raise ValueError("nombre_archivo invalido")
     return obtener_repo_root() / "data" / nombre_archivo
@@ -66,6 +70,7 @@ def guardar_audio_subido(
     contenido: bytes,
     nombre_archivo: str,
 ) -> Path:
+    """Guarda en ``data/`` un archivo binario recibido desde un upload HTTP."""
     if not contenido:
         raise ValueError("el archivo no puede estar vacio")
     ruta_salida = obtener_ruta_audio(nombre_archivo)
@@ -75,12 +80,17 @@ def guardar_audio_subido(
 
 
 def obtener_media_type_audio(nombre_archivo: str) -> str:
+    """Infiere el ``media_type`` HTTP a partir de la extension del archivo."""
     media_type, _ = mimetypes.guess_type(nombre_archivo)
     return media_type or "application/octet-stream"
 
 
 def reproducir_y_grabar(signal: np.ndarray, fs: int, duracion_grabacion: float) -> np.ndarray:
-    """Reproduce una senal y graba simultaneamente."""
+    """Reproduce una senal y graba simultaneamente en la maquina del backend.
+
+    Agrega un silencio inicial de 0.5 segundos para compensar parte de la
+    latencia del sistema de audio.
+    """
     signal_array = np.asarray(signal, dtype=np.float32)
 
     if signal_array.ndim not in (1, 2):
@@ -132,6 +142,7 @@ def reproducir_y_grabar(signal: np.ndarray, fs: int, duracion_grabacion: float) 
 
 @dataclass
 class RecordingSession:
+    """Estado compartido de una grabacion manual en curso."""
     stream: sd.InputStream | None = None
     fs: int | None = None
     channels: int | None = None
@@ -147,6 +158,7 @@ class RecordingSession:
     ultima_duracion_grabada: float = 0.0
 
     def callback(self, indata, frames, time_info, status) -> None:
+        """Acumula bloques de audio entrantes del ``InputStream`` activo."""
         _ = frames, time_info
         if status:
             print(f"Estado de grabacion: {status}")
@@ -154,6 +166,7 @@ class RecordingSession:
             self.frames.append(np.array(indata, dtype=np.float32, copy=True))
 
     def reset_active(self) -> None:
+        """Limpia solo el estado de la grabacion activa y conserva el historico final."""
         self.stream = None
         self.fs = None
         self.channels = None
@@ -175,6 +188,11 @@ def iniciar_grabacion(
     nombre_archivo: str = "grabacion_manual.wav",
     auto_stop_seconds: float = 60.0,
 ) -> dict[str, Any]:
+    """Inicia una grabacion manual con corte automatico opcional.
+
+    La captura se realiza en segundo plano con ``sounddevice.InputStream`` y
+    queda asociada al estado global del proceso FastAPI.
+    """
     if fs <= 0:
         raise ValueError("fs debe ser un entero positivo")
     if canales <= 0:
@@ -231,6 +249,7 @@ def iniciar_grabacion(
 
 
 def estado_grabacion() -> dict[str, Any]:
+    """Devuelve un snapshot serializable del estado actual de grabacion."""
     recording = _recording_session.stream is not None
     duracion_actual = 0.0
     if recording and _recording_session.started_at is not None:
@@ -251,10 +270,12 @@ def estado_grabacion() -> dict[str, Any]:
 
 
 def detener_grabacion(guardar_archivo: bool = True) -> tuple[np.ndarray, int, Path | None, dict[str, Any]]:
+    """Detiene manualmente la grabacion activa y opcionalmente persiste el audio."""
     return _finalizar_grabacion(guardar_archivo=guardar_archivo, motivo_fin="manual")
 
 
 def _auto_detener_y_guardar_grabacion() -> None:
+    """Callback del temporizador que finaliza y guarda la grabacion automaticamente."""
     try:
         _finalizar_grabacion(guardar_archivo=True, motivo_fin="auto_stop")
     except Exception as exc:
@@ -265,6 +286,7 @@ def _finalizar_grabacion(
     guardar_archivo: bool,
     motivo_fin: str,
 ) -> tuple[np.ndarray, int, Path | None, dict[str, Any]]:
+    """Centraliza la finalizacion de la grabacion, el cierre del stream y el guardado."""
     with _recording_session.lock:
         stream = _recording_session.stream
         if stream is None:
@@ -318,6 +340,7 @@ def _finalizar_grabacion(
 
 
 def _reset_session_after_error() -> None:
+    """Revierte el estado parcial de una grabacion fallida al iniciar."""
     with _recording_session.lock:
         timer = _recording_session.auto_stop_timer
         _recording_session.reset_active()
@@ -330,6 +353,7 @@ def reproducir_audio_guardado(
     output_device: int | None = None,
     blocking: bool = True,
 ) -> dict[str, Any]:
+    """Reproduce un archivo guardado localmente usando el dispositivo de salida indicado."""
     ruta_audio = obtener_ruta_audio(nombre_archivo)
     if not ruta_audio.exists():
         raise FileNotFoundError(nombre_archivo)
