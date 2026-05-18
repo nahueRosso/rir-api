@@ -29,9 +29,7 @@ def cargar_audio(ruta: str) -> tuple[np.ndarray, int]:
     raise NotImplementedError("Implementar en Milestone 2")
 
 
-def sintetizar_ri(
-    t60_por_banda: dict[float, float], fs: int, duracion: float
-) -> np.ndarray:
+def sintetizar_ri(t60_por_banda: dict[float, float], fs: int, duracion: float) -> np.ndarray:
     """Sintetiza una respuesta al impulso artificial a partir de valores T60 por banda.
 
     Parameters
@@ -51,9 +49,7 @@ def sintetizar_ri(
     raise NotImplementedError("Implementar en Milestone 2")
 
 
-def obtener_ri_desde_sweep(
-    grabacion: np.ndarray, filtro_inverso: np.ndarray
-) -> np.ndarray:
+def obtener_ri_desde_sweep(grabacion: np.ndarray, filtro_inverso: np.ndarray) -> np.ndarray:
     """Obtiene la respuesta al impulso mediante deconvolucion de un sine sweep.
 
     Parameters
