@@ -12,7 +12,42 @@ def generar_sine_sweep(
     fs: int,
     tipo_barrido: str = "logaritmico",
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Genera un barrido senoidal y su filtro inverso, ambos normalizados."""
+    """
+    Genera un barrido senoidal (sine sweep) y su correspondiente filtro inverso.
+
+    Permite generar barridos tanto lineales como logarítmicos. El filtro inverso
+    se calcula invirtiendo temporalmente el sweep y, en el caso logarítmico,
+    aplicando una modulación de amplitud para compensar la distribución de energía.
+    Ambas señales se devuelven normalizadas con valor pico de 1 o -1.
+
+    Parameters
+    ----------
+    f1 : float
+        Frecuencia inicial del barrido en Hz. Debe ser mayor que cero.
+    f2 : float
+        Frecuencia final del barrido en Hz. Debe ser mayor que f1.
+    duracion : float
+        Duración del barrido en segundos. Debe ser mayor que cero.
+    fs : int
+        Frecuencia de muestreo en Hz. Debe ser mayor que cero.
+    tipo_barrido : str, opcional
+        Tipo de progresión de frecuencia: 'lineal' o 'logaritmico'.
+        Por defecto es 'logaritmico'.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        Una tupla que contiene:
+        - sweep : np.ndarray (tipo np.float32) con la señal del barrido.
+        - filtro_inverso : np.ndarray (tipo np.float32) con el filtro inverso.
+
+    Raises
+    ------
+    ValueError
+        Si las frecuencias, duración o fs no son válidas, si f2 no supera a f1,
+        si f2 alcanza o supera la frecuencia de Nyquist (fs / 2), o si el
+        tipo de barrido no es uno de los permitidos.
+    """
     if f1 <= 0 or f2 <= 0:
         raise ValueError("las frecuencias deben ser positivas")
     if f2 <= f1:

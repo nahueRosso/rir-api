@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import sounddevice as sd
@@ -61,36 +61,39 @@ def obtener_ruta_audio(nombre_archivo: str) -> Path:
 
 
 def reproducir_y_grabar(signal: np.ndarray, fs: int, duracion_grabacion: float) -> np.ndarray:
-    """Reproduce una senal y graba simultaneamente.
+    """
+    Reproduce una señal de audio y graba la entrada simultáneamente.
 
-    La funcion agrega un silencio inicial de 0.5 segundos para compensar
-    parte de la latencia del sistema de audio.
+    La función agrega un silencio inicial (pre-roll) de 0.5 segundos al principio
+    de la señal para compensar la latencia del sistema de audio. Si la señal
+    de entrada es mono (1D), la grabación devuelta también será mono (1D).
 
     Parameters
     ----------
     signal : np.ndarray
-        Senal a reproducir. Puede ser un array 1D (mono) o 2D con forma
-        ``(muestras, canales)``.
+        Señal a reproducir. Puede ser un array 1D (mono) o 2D con forma
+        (muestras, canales).
     fs : int
-        Frecuencia de muestreo en Hz.
+        Frecuencia de muestreo en Hz. Debe ser mayor que cero.
     duracion_grabacion : float
-        Duracion total de la grabacion en segundos. Debe ser mayor o igual
-        a la duracion de la senal reproducida.
+        Duración total de la grabación en segundos. Debe ser mayor o igual
+        a la duración de la señal reproducida.
 
     Returns
     -------
     np.ndarray
-        Senal grabada. Si la entrada es mono, retorna un array 1D. Si la
-        entrada es multicanal, retorna un array 2D.
+        Array de tipo np.float32 con la señal grabada. Mantiene la misma
+        estructura de canales (1D o 2D) que la señal de entrada.
 
     Raises
     ------
     ValueError
-        Si la senal tiene una forma invalida, esta vacia, ``fs`` no es
-        positivo o ``duracion_grabacion`` es insuficiente.
+        Si la señal tiene una dimensión inválida, está vacía, fs o
+        duracion_grabacion no son positivos, o si la duración de la grabación
+        es menor que la duración de la señal.
     RuntimeError
-        Si no hay dispositivos de audio disponibles o si ocurre un error
-        durante la reproduccion/grabacion.
+        Si ocurre un error de PortAudio, si los dispositivos de audio no están
+        disponibles o si falla la configuración de canales/frecuencia.
     """
     signal_array = np.asarray(signal, dtype=np.float32)
 
@@ -108,9 +111,7 @@ def reproducir_y_grabar(signal: np.ndarray, fs: int, duracion_grabacion: float) 
 
     duracion_signal = signal_2d.shape[0] / fs
     if duracion_grabacion < duracion_signal:
-        raise ValueError(
-            "duracion_grabacion debe ser mayor o igual a la duracion de la senal"
-        )
+        raise ValueError("duracion_grabacion debe ser mayor o igual a la duracion de la senal")
 
     channels = signal_2d.shape[1]
     preroll_samples = int(round(0.5 * fs))
@@ -137,13 +138,9 @@ def reproducir_y_grabar(signal: np.ndarray, fs: int, duracion_grabacion: float) 
             blocking=True,
         )
     except sd.PortAudioError as exc:
-        raise RuntimeError(
-            f"No fue posible acceder a los dispositivos de audio: {exc}"
-        ) from exc
+        raise RuntimeError(f"No fue posible acceder a los dispositivos de audio: {exc}") from exc
     except Exception as exc:
-        raise RuntimeError(
-            f"Error durante la reproduccion y grabacion de audio: {exc}"
-        ) from exc
+        raise RuntimeError(f"Error durante la reproduccion y grabacion de audio: {exc}") from exc
 
     grabacion_array = np.asarray(grabacion, dtype=np.float32)
     if is_mono:
