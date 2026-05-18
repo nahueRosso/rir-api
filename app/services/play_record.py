@@ -1,12 +1,66 @@
 from __future__ import annotations
 
+from typing import Any
+from pathlib import Path
+
 import numpy as np
 import sounddevice as sd
+import soundfile as sf
 
 
-def reproducir_y_grabar(
-    signal: np.ndarray, fs: int, duracion_grabacion: float
-) -> np.ndarray:
+def device() -> dict[str, Any]:
+    default_input, default_output = sd.default.device
+    dispositivos = sd.query_devices()
+    return {
+        "default_input_device": _to_builtin(default_input),
+        "default_output_device": _to_builtin(default_output),
+        "devices": [_to_builtin(dict(dispositivo)) for dispositivo in dispositivos],
+    }
+
+
+def divice() -> dict[str, Any]:
+    return device()
+
+
+def guardar_audio(signal: np.ndarray, fs: int, nombre_archivo: str = "grabacion.wav") -> Path:
+    """Guarda un archivo de audio dentro de ``data/`` en la raiz del repositorio."""
+    signal_array = np.asarray(signal, dtype=np.float32)
+
+    if signal_array.ndim not in (1, 2):
+        raise ValueError("signal debe ser un array 1D (mono) o 2D (multicanal)")
+    if signal_array.size == 0:
+        raise ValueError("signal no puede estar vacia")
+    if fs <= 0:
+        raise ValueError("fs debe ser un entero positivo")
+    if not nombre_archivo:
+        raise ValueError("nombre_archivo no puede estar vacio")
+
+    repo_root = obtener_repo_root()
+
+    ruta_salida = repo_root / "data" / nombre_archivo
+    ruta_salida.parent.mkdir(parents=True, exist_ok=True)
+    sf.write(str(ruta_salida), signal_array, fs)
+    return ruta_salida
+
+
+def obtener_repo_root() -> Path:
+    repo_root = Path.cwd()
+    if not (repo_root / "pyproject.toml").exists():
+        candidatos = [repo_root, *repo_root.parents]
+        repo_root = next(
+            (path for path in candidatos if (path / "pyproject.toml").exists()),
+            repo_root,
+        )
+    return repo_root
+
+
+def obtener_ruta_audio(nombre_archivo: str) -> Path:
+    if not nombre_archivo or Path(nombre_archivo).name != nombre_archivo:
+        raise ValueError("nombre_archivo invalido")
+    return obtener_repo_root() / "data" / nombre_archivo
+
+
+def reproducir_y_grabar(signal: np.ndarray, fs: int, duracion_grabacion: float) -> np.ndarray:
     """Reproduce una senal y graba simultaneamente.
 
     La funcion agrega un silencio inicial de 0.5 segundos para compensar
@@ -71,8 +125,17 @@ def reproducir_y_grabar(
     try:
         sd.check_input_settings(samplerate=fs, channels=channels, dtype="float32")
         sd.check_output_settings(samplerate=fs, channels=channels, dtype="float32")
-        grabacion = sd.playrec(salida, samplerate=fs, channels=channels, dtype="float32")
-        sd.wait()
+        print(
+            f"Reproduciendo y grabando {duracion_grabacion:.2f} s "
+            f"a {fs} Hz con {channels} canal(es)..."
+        )
+        grabacion = sd.playrec(
+            salida,
+            samplerate=fs,
+            channels=channels,
+            dtype="float32",
+            blocking=True,
+        )
     except sd.PortAudioError as exc:
         raise RuntimeError(
             f"No fue posible acceder a los dispositivos de audio: {exc}"
@@ -86,3 +149,15 @@ def reproducir_y_grabar(
     if is_mono:
         return grabacion_array[:, 0]
     return grabacion_array
+
+
+def _to_builtin(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _to_builtin(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_to_builtin(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_to_builtin(item) for item in value)
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
