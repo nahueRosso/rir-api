@@ -4,6 +4,8 @@ Milestone 2: Procesamiento de la respuesta al impulso.
 """
 
 import numpy as np
+import soundfile as sf
+from pathlib import Path
 
 
 def cargar_audio(ruta: str) -> tuple[np.ndarray, int]:
@@ -26,7 +28,17 @@ def cargar_audio(ruta: str) -> tuple[np.ndarray, int]:
     FileNotFoundError
         Si el archivo especificado no existe.
     """
-    raise NotImplementedError("Implementar en Milestone 2")
+    ruta_path = Path(ruta)
+    if not ruta_path.exists():
+        raise FileNotFoundError(f"No existe el archivo: {ruta}")
+
+    signal, fs = sf.read(ruta_path, dtype="float32", always_2d=False)
+    signal_array = np.asarray(signal, dtype=np.float32)
+
+    if signal_array.ndim == 2:
+        signal_array = signal_array.mean(axis=1)
+
+    return signal_array, int(fs)
 
 
 def sintetizar_ri(t60_por_banda: dict[float, float], fs: int, duracion: float) -> np.ndarray:
@@ -80,4 +92,14 @@ def a_escala_log(signal: np.ndarray) -> np.ndarray:
     np.ndarray
         Senal en escala logaritmica (dB), normalizada a 0 dB en el maximo.
     """
-    raise NotImplementedError("Implementar en Milestone 2")
+    signal_array = np.asarray(signal, dtype=np.float64)
+    if signal_array.size == 0:
+        raise ValueError("signal no puede estar vacia")
+
+    magnitud = np.abs(signal_array)
+    referencia = np.max(magnitud)
+    if referencia <= 0.0:
+        return np.full(signal_array.shape, -np.inf, dtype=np.float64)
+
+    piso = np.finfo(np.float64).tiny
+    return 20.0 * np.log10(np.maximum(magnitud, piso) / referencia)
