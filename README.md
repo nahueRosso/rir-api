@@ -772,3 +772,4 @@ Las siguientes validaciones manuales fueron realizadas al completar el milestone
 | M1 — Generación de señales | ✅ Completado | 19 May 2026 |
 | M2 — Procesamiento de RI | 🔄 En curso | 16 Jun 2026 |
 | M3 — Producto final | Pendiente | 7 Jul 2026 |
+

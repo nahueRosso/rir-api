@@ -42,7 +42,17 @@ def integral_schroeder(ri: np.ndarray) -> np.ndarray:
     .. [1] Schroeder, M. R. (1965). "New method of measuring reverberation
        time." The Journal of the Acoustical Society of America.
     """
-    raise NotImplementedError("Implementar en Milestone 3")
+    ri_array = np.asarray(ri, dtype=np.float64)
+    if ri_array.ndim != 1:
+        raise ValueError("ri debe ser un array 1D")
+    if ri_array.size == 0:
+        raise ValueError("ri no puede estar vacia")
+
+    energia = ri_array**2
+    edc = np.cumsum(energia[::-1])[::-1]
+    if edc[0] > 0.0:
+        edc = edc / edc[0]
+    return edc
 
 
 def regresion_lineal(x: np.ndarray, y: np.ndarray) -> tuple[float, float]:
@@ -62,7 +72,18 @@ def regresion_lineal(x: np.ndarray, y: np.ndarray) -> tuple[float, float]:
     ordenada : float
         Ordenada al origen de la recta ajustada (b).
     """
-    raise NotImplementedError("Implementar en Milestone 3")
+    x_array = np.asarray(x, dtype=np.float64)
+    y_array = np.asarray(y, dtype=np.float64)
+
+    if x_array.ndim != 1 or y_array.ndim != 1:
+        raise ValueError("x e y deben ser arrays 1D")
+    if x_array.size != y_array.size:
+        raise ValueError("x e y deben tener la misma longitud")
+    if x_array.size < 2:
+        raise ValueError("se requieren al menos dos muestras")
+
+    pendiente, ordenada = np.polyfit(x_array, y_array, deg=1)
+    return float(pendiente), float(ordenada)
 
 
 def calcular_parametros_acusticos(ri: np.ndarray, fs: int) -> dict:

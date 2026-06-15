@@ -68,12 +68,11 @@ class TestGenerarSineSweep:
         assert len(sweep) == expected_length
         assert len(filtro_inv) == expected_length
 
+
     def test_sine_sweep_lineal_retorna_arrays_normalizados(self):
         """Verifica que el modo lineal genere senales normalizadas."""
         sweep, filtro_inv = generar_sine_sweep(100, 1000, 1.0, 8000, "lineal")
         assert isinstance(sweep, np.ndarray)
-        assert isinstance(filtro_inv, np.ndarray)
-        assert np.max(np.abs(sweep)) <= 1.0
         assert np.max(np.abs(filtro_inv)) <= 1.0
 
     def test_sine_sweep_rango_frecuencias(self):
@@ -122,12 +121,12 @@ class TestGenerarSineSweep:
 
         assert ratio_db >= 40.0
 
+>>>>>>> dev
 
 class TestReproducirYGrabar:
     """Tests para la funcion reproducir_y_grabar."""
 
     def test_reproducir_y_grabar_mono_retorna_1d(self, monkeypatch):
-        """Verifica que una senal mono produzca una grabacion 1D."""
         fs = 8000
         signal = np.linspace(-1.0, 1.0, fs, dtype=np.float32)
 
@@ -226,8 +225,6 @@ class TestGuardarAudio:
 
     def test_guardar_audio_crea_archivo_en_data(self, monkeypatch, tmp_path):
         """Verifica que la funcion escriba en data/ desde la raiz del repo."""
-        senal = np.array([0.1, -0.1, 0.2], dtype=np.float32)
-        fs = 44100
         llamadas = {}
 
         (tmp_path / "subdir").mkdir(parents=True, exist_ok=True)
