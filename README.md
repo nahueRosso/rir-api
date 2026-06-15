@@ -726,35 +726,49 @@ Sintetiza una respuesta al impulso artificial con valores de T60 conocidos por b
 
 ## Validación M1
 
-Las siguientes validaciones manuales fueron realizadas al completar el milestone.
-
 ### Espectro del ruido rosa
 
-<!-- TODO: agregar captura del espectro en Audacity o REW mostrando la pendiente de -3 dB/octava -->
+Densidad espectral de potencia (PSD) calculada con el método de Welch.
+Confirma la pendiente característica de −3 dB/octava del ruido rosa.
 
-### Espectrograma del sine sweep
+![Espectro ruido rosa](docs/validacion/m1_ruido_rosa_psd.png)
 
-<!-- TODO: agregar captura del espectrograma mostrando el barrido logarítmico de f1 a f2 -->
+### Sine sweep — forma de onda y filtro inverso
 
-### Convolución sweep × filtro inverso
+Primeros 50 ms del sine sweep logarítmico (20–20000 Hz) y su filtro inverso correspondiente.
 
-<!-- TODO: agregar gráfica del resultado de la convolución mostrando el impulso -->
+![Sine sweep forma de onda](docs/validacion/m1_sweep_forma_onda.png)
+
+![Filtro inverso](docs/validacion/m1_sweep_filtro_inverso.png)
 
 ### Prueba de reproducción y grabación
 
-<!-- TODO: agregar captura o gráfica de la prueba real con altavoz y micrófono -->
+Captura del sistema de grabación en tiempo real desde micrófono del dispositivo.
+
+![Grabación](docs/validacion/m1_grabacion.png)
 
 ## Validación M2
 
-Las siguientes validaciones manuales fueron realizadas al completar el milestone.
+### Respuesta al impulso h(t)
 
-### RIs de referencia — OpenAIR
+RI obtenida por deconvolución del sine sweep grabado con su filtro inverso.
+Se observa el pico de llegada directa seguido de la cola de reverberación.
 
-<!-- TODO: agregar capturas del procesamiento de las RIs descargadas de OpenAIR -->
+![Respuesta al impulso](docs/validacion/m2_respuesta_impulso.png)
 
-### Comparación con software de referencia (REW / ARTA)
+### Curva de decaimiento L(t)
 
-<!-- TODO: agregar comparación de resultados con REW o ARTA -->
+Señal en escala logarítmica (dB). La curva parte de 0 dB y decae a lo largo
+del tiempo — su pendiente permite estimar el T60 de la sala (calculado en M3).
+
+![Curva de decaimiento](docs/validacion/m2_curva_decaimiento.png)
+
+### Filtro de octava — banda de 1000 Hz
+
+RI filtrada en la banda de 1 kHz según IEC 61260 (Butterworth fase cero).
+Muestra la curva de decaimiento específica de esa banda de frecuencia.
+
+![Filtro octava 1kHz](docs/validacion/m2_filtro_octava_1khz.png)
 
 ## Branching strategy
  
