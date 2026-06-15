@@ -4,26 +4,34 @@ from __future__ import annotations
 
 import numpy as np
 import soundfile as sf
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from app.schemas.generation import (
     DeviceInfoResponse,
     PinkNoiseRequest,
     PinkNoiseResponse,
-    PlayRecordRequest,
-    PlayRecordResponse,
+    RecordingStatusResponse,
     ResumenAudio,
     SineSweepRequest,
     SineSweepResponse,
+    StartRecordingRequest,
+    StartRecordingResponse,
     StoredAudioSamplesResponse,
+    StopRecordingRequest,
+    StopRecordingResponse,
+    UploadRecordingResponse,
 )
 from app.services.pink_noise import generar_ruido_rosa
 from app.services.play_record import (
     device,
+    detener_grabacion,
+    estado_grabacion,
     guardar_audio,
+    guardar_audio_subido,
+    iniciar_grabacion,
+    obtener_media_type_audio,
     obtener_ruta_audio,
-    reproducir_y_grabar,
 )
 from app.services.sine_sweep import generar_sine_sweep as generar_sine_sweep_service
 
@@ -117,6 +125,60 @@ async def get_audio_device() -> DeviceInfoResponse:
 
 
 @router.get(
+    "/recording/status",
+    response_model=RecordingStatusResponse,
+    summary="Consultar estado de la grabacion manual",
+)
+async def get_recording_status() -> RecordingStatusResponse:
+    return RecordingStatusResponse(**estado_grabacion())
+
+
+@router.post(
+    "/recording/start",
+    response_model=StartRecordingResponse,
+    summary="Iniciar grabacion en la web",
+)
+async def start_recording(payload: StartRecordingRequest) -> StartRecordingResponse:
+    try:
+        estado = iniciar_grabacion(
+            fs=int(payload.fs),
+            canales=payload.canales,
+            input_device=payload.input_device,
+            nombre_archivo=payload.nombre_archivo,
+            auto_stop_seconds=payload.auto_stop_seconds,
+        )
+        return StartRecordingResponse(estado=RecordingStatusResponse(**estado))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post(
+    "/recording/stop",
+    response_model=StopRecordingResponse,
+    summary="Detener grabacion manual y devolver el audio",
+)
+async def stop_recording(payload: StopRecordingRequest) -> StopRecordingResponse:
+    try:
+        audio, fs, ruta_audio, estado = detener_grabacion(guardar_archivo=payload.guardar_audio)
+        return StopRecordingResponse(
+            estado=RecordingStatusResponse(**estado),
+            grabacion=_construir_resumen_audio(
+                audio,
+                fs,
+                ruta_audio,
+                incluir_samples=payload.incluir_samples,
+                max_points=payload.max_points,
+            ),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get(
     "/audio/{nombre_archivo}",
     summary="Descargar un archivo de audio generado",
 )
@@ -131,8 +193,36 @@ async def get_audio_file(nombre_archivo: str) -> FileResponse:
 
     return FileResponse(
         path=ruta_audio,
-        media_type="audio/wav",
+        media_type=obtener_media_type_audio(ruta_audio.name),
         filename=ruta_audio.name,
+    )
+
+
+@router.post(
+    "/upload-recording",
+    response_model=UploadRecordingResponse,
+    summary="Subir grabacion desde la web",
+)
+async def upload_recording(
+    file: UploadFile = File(...),
+    nombre_archivo: str | None = Form(None),
+) -> UploadRecordingResponse:
+    nombre_final = nombre_archivo or file.filename
+    if not nombre_final:
+        raise HTTPException(status_code=400, detail="nombre_archivo es obligatorio")
+
+    try:
+        contenido = await file.read()
+        ruta_audio = guardar_audio_subido(contenido, nombre_final)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return UploadRecordingResponse(
+        nombre_archivo=ruta_audio.name,
+        content_type=file.content_type or obtener_media_type_audio(ruta_audio.name),
+        audio_path=str(ruta_audio),
+        audio_url=f"/api/v1/generation/audio/{ruta_audio.name}",
+        tamano_bytes=len(contenido),
     )
 
 
@@ -160,43 +250,6 @@ async def get_audio_samples(nombre_archivo: str) -> StoredAudioSamplesResponse:
             max_points=2000,
         ).model_dump()
     )
-
-
-@router.post(
-    "/play-record",
-    response_model=PlayRecordResponse,
-    summary="Reproducir y grabar una senal",
-)
-async def play_and_record_signal(payload: PlayRecordRequest) -> PlayRecordResponse:
-    try:
-        fs = int(payload.fs)
-        signal = np.asarray(payload.signal, dtype=np.float32)
-        grabacion = reproducir_y_grabar(signal, fs, payload.duracion_grabacion)
-        ruta_grabacion = (
-            guardar_audio(grabacion, fs, payload.nombre_archivo) if payload.guardar_audio else None
-        )
-        return PlayRecordResponse(
-            fs=fs,
-            duracion_grabacion=payload.duracion_grabacion,
-            senal_entrada=_construir_resumen_audio(
-                signal,
-                fs,
-                None,
-                incluir_samples=payload.incluir_samples,
-                max_points=payload.max_points,
-            ),
-            grabacion=_construir_resumen_audio(
-                grabacion,
-                fs,
-                ruta_grabacion,
-                incluir_samples=payload.incluir_samples,
-                max_points=payload.max_points,
-            ),
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 def _construir_resumen_audio(

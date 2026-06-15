@@ -7,7 +7,34 @@ import numpy as np
 
 
 def generar_ruido_rosa(duracion: float, fs: int) -> np.ndarray:
-    """Genera ruido rosa aproximado mediante filtrado espectral 1/sqrt(f)."""
+    """
+    Genera ruido rosa utilizando el método de filtrado en el dominio frecuencial 1/sqrt(f).
+
+    La señal se genera creando ruido blanco en el dominio del tiempo,
+    transformándolo al dominio de la frecuencia mediante la FFT, y aplicando
+    un filtro con una respuesta inversamente proporcional a la raíz de la frecuencia
+    (1/sqrt(f)). Esto garantiza la caída característica de -3 dB/octava.
+    Finalmente, la señal se normaliza para que su valor pico sea 1 o -1.
+
+    Parameters
+    ----------
+    duracion : float
+        Duración de la señal de ruido rosa en segundos. Debe ser mayor que cero.
+    fs : int
+        Frecuencia de muestreo en Hz. Debe ser mayor que cero.
+
+    Returns
+    -------
+    np.ndarray
+        Array de una dimensión (tipo np.float32) con la señal de ruido rosa
+        normalizada entre -1 y 1.
+
+    Raises
+    ------
+    ValueError
+        Si 'duracion' o 'fs' son menores o iguales a cero, o si el producto
+        de ambos no genera al menos una muestra.
+    """
     if duracion <= 0:
         raise ValueError("duracion debe ser positiva")
     if fs <= 0:

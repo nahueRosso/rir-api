@@ -87,22 +87,51 @@ class DeviceInfoResponse(BaseModel):
     devices: list[dict[str, Any]]
 
 
-class PlayRecordRequest(BaseModel):
-    signal: list[float] | list[list[float]]
+class StartRecordingRequest(BaseModel):
     fs: SampleRateHz
-    duracion_grabacion: float = Field(..., gt=0)
+    canales: int = Field(1, ge=1, le=32)
+    input_device: int | None = None
+    nombre_archivo: str = "grabacion_manual.wav"
+    auto_stop_seconds: float = Field(60.0, gt=0, le=3600)
+
+
+class RecordingStatusResponse(BaseModel):
+    recording: bool
+    fs: int | None = None
+    canales: int | None = None
+    input_device: int | None = None
+    nombre_archivo: str | None = None
+    duracion_actual: float = 0.0
+    auto_stop_seconds: float | None = None
+    ultimo_archivo_guardado: str | None = None
+    ultimo_motivo_fin: str | None = None
+    ultima_duracion_grabada: float = 0.0
+
+
+class StartRecordingResponse(BaseModel):
+    tipo: str = "recording_started"
+    estado: RecordingStatusResponse
+
+
+class StopRecordingRequest(BaseModel):
     guardar_audio: bool = True
-    nombre_archivo: str = "grabacion.wav"
     incluir_samples: bool = True
     max_points: int = Field(2000, ge=2, le=20000)
 
 
-class PlayRecordResponse(BaseModel):
-    tipo: str = "play_record"
-    fs: int
-    duracion_grabacion: float
-    senal_entrada: ResumenAudio
+class StopRecordingResponse(BaseModel):
+    tipo: str = "recording_stopped"
+    estado: RecordingStatusResponse
     grabacion: ResumenAudio
+
+
+class UploadRecordingResponse(BaseModel):
+    tipo: str = "uploaded_recording"
+    nombre_archivo: str
+    content_type: str
+    audio_path: str
+    audio_url: str
+    tamano_bytes: int
 
 
 class StoredAudioSamplesResponse(ResumenAudio):
@@ -113,12 +142,16 @@ __all__ = [
     "DeviceInfoResponse",
     "PinkNoiseRequest",
     "PinkNoiseResponse",
-    "PlayRecordRequest",
-    "PlayRecordResponse",
+    "RecordingStatusResponse",
     "ResumenAudio",
     "SampleRateHz",
     "SineSweepRequest",
     "SineSweepResponse",
+    "StartRecordingRequest",
+    "StartRecordingResponse",
     "StoredAudioSamplesResponse",
+    "StopRecordingRequest",
+    "StopRecordingResponse",
     "TipoBarrido",
+    "UploadRecordingResponse",
 ]
