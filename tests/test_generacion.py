@@ -121,7 +121,6 @@ class TestGenerarSineSweep:
 
         assert ratio_db >= 40.0
 
->>>>>>> dev
 
 class TestReproducirYGrabar:
     """Tests para la funcion reproducir_y_grabar."""
@@ -226,6 +225,8 @@ class TestGuardarAudio:
     def test_guardar_audio_crea_archivo_en_data(self, monkeypatch, tmp_path):
         """Verifica que la funcion escriba en data/ desde la raiz del repo."""
         llamadas = {}
+        senal = np.ones(44100, dtype=np.float32)
+        fs = 44100
 
         (tmp_path / "subdir").mkdir(parents=True, exist_ok=True)
         monkeypatch.chdir(tmp_path / "subdir")
