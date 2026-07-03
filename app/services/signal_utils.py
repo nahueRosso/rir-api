@@ -1,105 +1,169 @@
-"""Utilidades de procesamiento de senales.
+"""Utilidades de procesamiento de senales (Milestone 2)."""
 
-Milestone 2: Procesamiento de la respuesta al impulso.
-"""
+from __future__ import annotations
+
+from pathlib import Path
 
 import numpy as np
 import soundfile as sf
-from pathlib import Path
+from scipy.signal import fftconvolve
 
 
-def cargar_audio(ruta: str) -> tuple[np.ndarray, int]:
-    """Carga un archivo de audio y retorna la senal y la frecuencia de muestreo.
+def cargar_audio(ruta: str | Path) -> tuple[np.ndarray, int]:
+    """Carga un archivo de audio WAV o FLAC.
 
     Parameters
     ----------
-    ruta : str
-        Ruta al archivo de audio a cargar.
+    ruta : str | Path
+        Ruta al archivo de audio.
 
     Returns
     -------
-    signal : np.ndarray
-        Senal de audio como array 1D (mono).
-    fs : int
-        Frecuencia de muestreo del archivo en Hz.
+    tuple[np.ndarray, int]
+        (senal, fs). La senal es float64 normalizada entre -1 y 1.
+        Si el archivo es estereo, se devuelve shape (n_muestras, n_canales).
 
     Raises
     ------
     FileNotFoundError
-        Si el archivo especificado no existe.
+        Si el archivo no existe.
+    ValueError
+        Si el formato no es soportado.
     """
     ruta_path = Path(ruta)
     if not ruta_path.exists():
         raise FileNotFoundError(f"No existe el archivo: {ruta}")
 
-    signal, fs = sf.read(ruta_path, dtype="float32", always_2d=False)
-    signal_array = np.asarray(signal, dtype=np.float32)
+    sufijo = ruta_path.suffix.lower()
+    formatos_soportados = {".wav", ".flac", ".ogg", ".aiff", ".aif"}
+    if sufijo not in formatos_soportados:
+        raise ValueError(
+            f"Formato no soportado: '{sufijo}'. "
+            f"Formatos validos: {sorted(formatos_soportados)}"
+        )
 
-    if signal_array.ndim == 2:
-        signal_array = signal_array.mean(axis=1)
-
-    return signal_array, int(fs)
+    senal, fs = sf.read(ruta_path, dtype="float64", always_2d=False)
+    return np.asarray(senal, dtype=np.float64), int(fs)
 
 
-def sintetizar_ri(t60_por_banda: dict[float, float], fs: int, duracion: float) -> np.ndarray:
-    """Sintetiza una respuesta al impulso artificial a partir de valores T60 por banda.
+def sintetizar_ri(
+    t60_por_banda: dict[float, float], fs: int, duracion: float
+) -> np.ndarray:
+    """Sintetiza una respuesta al impulso con T60 conocidos por banda.
+
+    Modelo: h(t) = n(t) * exp(-alpha * t), donde alpha = 6.908 / T60.
+    Suma la contribucion de cada banda de octava filtrada.
 
     Parameters
     ----------
     t60_por_banda : dict[float, float]
-        Diccionario {frecuencia_central_Hz: T60_segundos}.
+        {frecuencia_central_Hz: T60_segundos}.
+        Ejemplo: {125: 2.0, 500: 1.5, 1000: 1.2}.
     fs : int
         Frecuencia de muestreo en Hz.
     duracion : float
-        Duracion de la respuesta al impulso en segundos.
+        Duracion de la RI en segundos.
 
     Returns
     -------
     np.ndarray
-        Respuesta al impulso sintetizada (array 1D).
+        RI sintetizada, normalizada, float32.
     """
-    raise NotImplementedError("Implementar en Milestone 2")
+    n = int(duracion * fs)
+    t = np.arange(n, dtype=np.float64) / fs
+    ri = np.zeros(n, dtype=np.float64)
+    rng = np.random.default_rng(seed=42)
+
+    for t60 in t60_por_banda.values():
+        if t60 <= 0:
+            continue
+        alpha = 3.0 * np.log(10.0) / t60  # = 6.908 / T60
+        envolvente = np.exp(-alpha * t)
+        ruido = rng.standard_normal(n)
+        # Ruido blanco modulado por la envolvente exponencial.
+        # No se filtra en banda aqui: al convolucionar con el sweep de banda
+        # ancha el contenido espectral de la RI queda determinado por el sweep.
+        ri += ruido * envolvente
+
+    max_val = np.max(np.abs(ri))
+    if max_val > 0:
+        ri /= max_val
+
+    return ri.astype(np.float32)
 
 
-def obtener_ri_desde_sweep(grabacion: np.ndarray, filtro_inverso: np.ndarray) -> np.ndarray:
-    """Obtiene la respuesta al impulso mediante deconvolucion de un sine sweep.
+def obtener_ri_desde_sweep(
+    grabacion: np.ndarray, filtro_inverso: np.ndarray
+) -> np.ndarray:
+    """Obtiene la respuesta al impulso por deconvolucion.
+
+    h(t) = y(t) * x_inv(t),  donde y es la grabacion y x_inv el filtro inverso.
 
     Parameters
     ----------
     grabacion : np.ndarray
-        Senal grabada que contiene la respuesta de la sala al sweep.
+        Senal grabada (respuesta del recinto al sweep).
     filtro_inverso : np.ndarray
-        Filtro inverso del sweep utilizado.
+        Filtro inverso del sweep.
 
     Returns
     -------
     np.ndarray
-        Respuesta al impulso estimada, normalizada.
+        RI estimada, normalizada, float32. Comienza en el pico principal.
     """
-    raise NotImplementedError("Implementar en Milestone 2")
+    grab = np.asarray(grabacion, dtype=np.float64)
+    filtro = np.asarray(filtro_inverso, dtype=np.float64)
+
+    # Reducir a mono si alguna señal es multicanal
+    if grab.ndim > 1:
+        grab = grab.mean(axis=1)
+    if filtro.ndim > 1:
+        filtro = filtro.mean(axis=1)
+
+    ri = fftconvolve(grab, filtro, mode="full")
+
+    pico_idx = int(np.argmax(np.abs(ri)))
+
+    # Conservar hasta 10 ms antes del pico para capturar la llegada directa
+    preroll = min(pico_idx, max(1, int(0.01 * len(grab))))
+    ri = ri[pico_idx - preroll :]
+
+    max_val = np.max(np.abs(ri))
+    if max_val > 0:
+        ri /= max_val
+
+    return ri.astype(np.float32)
 
 
-def a_escala_log(signal: np.ndarray) -> np.ndarray:
-    """Convierte una senal a escala logaritmica (dB) normalizada.
+def a_escala_log(senal: np.ndarray) -> np.ndarray:
+    """Convierte una senal a escala logaritmica (dB) normalizada a 0 dB.
+
+    L(t) = 20 * log10(|h(t)| / max(|h(t)|))
 
     Parameters
     ----------
-    signal : np.ndarray
-        Senal de entrada (array 1D).
+    senal : np.ndarray
+        Senal de entrada.
 
     Returns
     -------
     np.ndarray
-        Senal en escala logaritmica (dB), normalizada a 0 dB en el maximo.
+        Senal en dB (float64). Maximo = 0 dB; piso = -120 dB.
+
+    Raises
+    ------
+    ValueError
+        Si la senal esta vacia o es todo cero.
     """
-    signal_array = np.asarray(signal, dtype=np.float64)
-    if signal_array.size == 0:
-        raise ValueError("signal no puede estar vacia")
+    arr = np.asarray(senal, dtype=np.float64)
+    if arr.size == 0:
+        raise ValueError("La senal no puede estar vacia")
 
-    magnitud = np.abs(signal_array)
-    referencia = np.max(magnitud)
-    if referencia <= 0.0:
-        return np.full(signal_array.shape, -np.inf, dtype=np.float64)
+    magnitud = np.abs(arr)
+    ref = np.max(magnitud)
+    if ref <= 0.0:
+        raise ValueError("La senal es todo cero: no se puede convertir a dB")
 
-    piso = np.finfo(np.float64).tiny
-    return 20.0 * np.log10(np.maximum(magnitud, piso) / referencia)
+    # Piso de -120 dB para evitar -inf
+    piso_lineal = ref * 10.0 ** (-120.0 / 20.0)
+    return 20.0 * np.log10(np.maximum(magnitud, piso_lineal) / ref)

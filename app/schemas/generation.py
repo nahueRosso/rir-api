@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum, IntEnum
+from enum import IntEnum, StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -19,7 +19,7 @@ class SampleRateHz(IntEnum):
     HZ_192000 = 192000
 
 
-class TipoBarrido(str, Enum):
+class TipoBarrido(StrEnum):
     LINEAL = "lineal"
     LOGARITMICO = "logaritmico"
 
@@ -138,13 +138,38 @@ class StoredAudioSamplesResponse(ResumenAudio):
     pass
 
 
+class PinkNoiseAudioRequest(BaseModel):
+    duracion: float = Field(5.0, gt=0, le=300)
+    fs: SampleRateHz = SampleRateHz.HZ_44100
+
+
+class SineSweepAudioRequest(BaseModel):
+    frecuencia_inicial: float = Field(20.0, gt=0, le=20000)
+    frecuencia_final: float = Field(20000.0, gt=0, le=96000)
+    duracion: float = Field(5.0, gt=0, le=300)
+    fs: SampleRateHz = SampleRateHz.HZ_44100
+    tipo_barrido: TipoBarrido = TipoBarrido.LOGARITMICO
+
+
+class AudioSamplesResponse(BaseModel):
+    fs: int
+    duracion: float
+    n_canales: int
+    samples_reducidos: bool
+    amplitude: list[float] | None = None
+    channels: list[list[float]] | None = None
+
+
 __all__ = [
+    "AudioSamplesResponse",
     "DeviceInfoResponse",
+    "PinkNoiseAudioRequest",
     "PinkNoiseRequest",
     "PinkNoiseResponse",
     "RecordingStatusResponse",
     "ResumenAudio",
     "SampleRateHz",
+    "SineSweepAudioRequest",
     "SineSweepRequest",
     "SineSweepResponse",
     "StartRecordingRequest",

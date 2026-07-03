@@ -1,122 +1,126 @@
-"""Endpoints de generacion de senales."""
+"""Endpoints de generacion de senales — flujo directo (audio como binario)."""
 
 from __future__ import annotations
 
+import io
+
 import numpy as np
 import soundfile as sf
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi.responses import StreamingResponse
 
 from app.schemas.generation import (
+    AudioSamplesResponse,
     DeviceInfoResponse,
-    PinkNoiseRequest,
-    PinkNoiseResponse,
+    PinkNoiseAudioRequest,
     RecordingStatusResponse,
-    ResumenAudio,
-    SineSweepRequest,
-    SineSweepResponse,
+    SineSweepAudioRequest,
     StartRecordingRequest,
     StartRecordingResponse,
-    StoredAudioSamplesResponse,
-    StopRecordingRequest,
-    StopRecordingResponse,
-    UploadRecordingResponse,
 )
 from app.services.pink_noise import generar_ruido_rosa
 from app.services.play_record import (
-    device,
     detener_grabacion,
+    device,
     estado_grabacion,
-    guardar_audio,
-    guardar_audio_subido,
     iniciar_grabacion,
-    obtener_media_type_audio,
-    obtener_ruta_audio,
 )
 from app.services.sine_sweep import generar_sine_sweep as generar_sine_sweep_service
 
 router = APIRouter(prefix="/api/v1/generation", tags=["generation"])
 
 
-@router.post(
-    "/pink-noise",
-    response_model=PinkNoiseResponse,
-    summary="Generar ruido rosa",
-)
-async def generate_pink_noise(payload: PinkNoiseRequest) -> PinkNoiseResponse:
+def _a_wav(signal: np.ndarray, fs: int) -> io.BytesIO:
+    buf = io.BytesIO()
+    sf.write(buf, signal, fs, format="WAV", subtype="PCM_16")
+    buf.seek(0)
+    return buf
+
+
+def _wav_response(buf: io.BytesIO, filename: str) -> StreamingResponse:
+    return StreamingResponse(
+        buf,
+        media_type="audio/wav",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.post("/pink-noise", summary="Generar ruido rosa y devolver WAV")
+async def generate_pink_noise(payload: PinkNoiseAudioRequest) -> StreamingResponse:
     try:
-        fs = int(payload.fs)
-        ruido = generar_ruido_rosa(payload.duracion, fs)
-        ruta = guardar_audio(ruido, fs, payload.nombre_archivo) if payload.guardar_audio else None
-        audio = _construir_resumen_audio(
-            ruido,
-            fs,
-            ruta,
-            incluir_samples=payload.incluir_samples,
-            max_points=payload.max_points,
-        )
-        return PinkNoiseResponse(
-            duracion=payload.duracion,
-            fs=fs,
-            audio=audio,
-        )
+        signal = generar_ruido_rosa(payload.duracion, int(payload.fs))
+        return _wav_response(_a_wav(signal, int(payload.fs)), "pink_noise.wav")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post(
-    "/sine-sweep",
-    response_model=SineSweepResponse,
-    summary="Generar sine sweep",
-)
-async def generate_sine_sweep(payload: SineSweepRequest) -> SineSweepResponse:
+@router.post("/sine-sweep", summary="Generar sine sweep y devolver WAV")
+async def generate_sine_sweep(payload: SineSweepAudioRequest) -> StreamingResponse:
     try:
         fs = int(payload.fs)
-        sweep, filtro_inverso = generar_sine_sweep_service(
+        sweep, _ = generar_sine_sweep_service(
             payload.frecuencia_inicial,
             payload.frecuencia_final,
             payload.duracion,
             fs,
             payload.tipo_barrido.value,
         )
-        ruta_sweep = guardar_audio(sweep, fs, payload.nombre_archivo) if payload.guardar_audio else None
-        ruta_filtro = None
-        if payload.guardar_filtro_inverso:
-            ruta_filtro = guardar_audio(
-                filtro_inverso,
-                fs,
-                payload.nombre_archivo_filtro_inverso,
-            )
-        return SineSweepResponse(
-            frecuencia_inicial=payload.frecuencia_inicial,
-            frecuencia_final=payload.frecuencia_final,
-            duracion=payload.duracion,
-            fs=fs,
-            tipo_barrido=payload.tipo_barrido,
-            sweep=_construir_resumen_audio(
-                sweep,
-                fs,
-                ruta_sweep,
-                incluir_samples=payload.incluir_samples,
-                max_points=payload.max_points,
-            ),
-            filtro_inverso=_construir_resumen_audio(
-                filtro_inverso,
-                fs,
-                ruta_filtro,
-                incluir_samples=payload.incluir_samples,
-                max_points=payload.max_points,
-            ),
-        )
+        return _wav_response(_a_wav(sweep, fs), "sine_sweep.wav")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get(
-    "/device",
-    response_model=DeviceInfoResponse,
-    summary="Consultar dispositivos de audio",
-)
+@router.post("/sine-sweep/inverse-filter", summary="Generar filtro inverso del sine sweep")
+async def generate_inverse_filter(payload: SineSweepAudioRequest) -> StreamingResponse:
+    try:
+        fs = int(payload.fs)
+        _, filtro = generar_sine_sweep_service(
+            payload.frecuencia_inicial,
+            payload.frecuencia_final,
+            payload.duracion,
+            fs,
+            payload.tipo_barrido.value,
+        )
+        return _wav_response(_a_wav(filtro, fs), "inverse_filter.wav")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/upload-recording", summary="Recibir grabacion del navegador y devolverla")
+async def upload_recording(file: UploadFile = File(...)) -> StreamingResponse:
+    content = await file.read()
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type=file.content_type or "audio/wav",
+        headers={"Content-Disposition": f"attachment; filename={file.filename or 'grabacion.wav'}"},
+    )
+
+
+@router.post("/samples", summary="Extraer muestras de un audio para visualizacion")
+async def get_audio_samples(
+    file: UploadFile = File(...),
+    n_puntos: int = Query(2000, ge=100, le=10000),
+) -> AudioSamplesResponse:
+    try:
+        arr, fs = sf.read(io.BytesIO(await file.read()), dtype="float32", always_2d=False)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"No se pudo leer el audio: {exc}") from exc
+
+    arr = np.asarray(arr, dtype=np.float32)
+    n_canales = 1 if arr.ndim == 1 else arr.shape[1]
+    reducida, fue_reducida = _reducir_para_grafico(arr, n_puntos)
+
+    return AudioSamplesResponse(
+        fs=int(fs),
+        duracion=float(arr.shape[0] / fs),
+        n_canales=n_canales,
+        samples_reducidos=fue_reducida,
+        amplitude=reducida.tolist() if reducida.ndim == 1 else None,
+        channels=reducida.T.tolist() if reducida.ndim > 1 else None,
+    )
+
+
+@router.get("/device", response_model=DeviceInfoResponse, summary="Dispositivos de audio")
 async def get_audio_device() -> DeviceInfoResponse:
     try:
         return DeviceInfoResponse(**device())
@@ -124,20 +128,12 @@ async def get_audio_device() -> DeviceInfoResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@router.get(
-    "/recording/status",
-    response_model=RecordingStatusResponse,
-    summary="Consultar estado de la grabacion manual",
-)
+@router.get("/recording/status", response_model=RecordingStatusResponse)
 async def get_recording_status() -> RecordingStatusResponse:
     return RecordingStatusResponse(**estado_grabacion())
 
 
-@router.post(
-    "/recording/start",
-    response_model=StartRecordingResponse,
-    summary="Iniciar grabacion en la web",
-)
+@router.post("/recording/start", response_model=StartRecordingResponse)
 async def start_recording(payload: StartRecordingRequest) -> StartRecordingResponse:
     try:
         estado = iniciar_grabacion(
@@ -154,164 +150,26 @@ async def start_recording(payload: StartRecordingRequest) -> StartRecordingRespo
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.post(
-    "/recording/stop",
-    response_model=StopRecordingResponse,
-    summary="Detener grabacion manual y devolver el audio",
-)
-async def stop_recording(payload: StopRecordingRequest) -> StopRecordingResponse:
+@router.post("/recording/stop", summary="Detener grabacion del servidor y devolver WAV")
+async def stop_recording() -> StreamingResponse:
     try:
-        audio, fs, ruta_audio, estado = detener_grabacion(guardar_archivo=payload.guardar_audio)
-        return StopRecordingResponse(
-            estado=RecordingStatusResponse(**estado),
-            grabacion=_construir_resumen_audio(
-                audio,
-                fs,
-                ruta_audio,
-                incluir_samples=payload.incluir_samples,
-                max_points=payload.max_points,
-            ),
-        )
+        audio, fs, _ruta, _estado = detener_grabacion(guardar_archivo=False)
+        return _wav_response(_a_wav(audio, fs), "grabacion_servidor.wav")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.get(
-    "/audio/{nombre_archivo}",
-    summary="Descargar un archivo de audio generado",
-)
-async def get_audio_file(nombre_archivo: str) -> FileResponse:
-    try:
-        ruta_audio = obtener_ruta_audio(nombre_archivo)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    if not ruta_audio.exists():
-        raise HTTPException(status_code=404, detail="audio no encontrado")
-
-    return FileResponse(
-        path=ruta_audio,
-        media_type=obtener_media_type_audio(ruta_audio.name),
-        filename=ruta_audio.name,
-    )
-
-
-@router.post(
-    "/upload-recording",
-    response_model=UploadRecordingResponse,
-    summary="Subir grabacion desde la web",
-)
-async def upload_recording(
-    file: UploadFile = File(...),
-    nombre_archivo: str | None = Form(None),
-) -> UploadRecordingResponse:
-    nombre_final = nombre_archivo or file.filename
-    if not nombre_final:
-        raise HTTPException(status_code=400, detail="nombre_archivo es obligatorio")
-
-    try:
-        contenido = await file.read()
-        ruta_audio = guardar_audio_subido(contenido, nombre_final)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    return UploadRecordingResponse(
-        nombre_archivo=ruta_audio.name,
-        content_type=file.content_type or obtener_media_type_audio(ruta_audio.name),
-        audio_path=str(ruta_audio),
-        audio_url=f"/api/v1/generation/audio/{ruta_audio.name}",
-        tamano_bytes=len(contenido),
-    )
-
-
-@router.get(
-    "/audio/{nombre_archivo}/samples",
-    response_model=StoredAudioSamplesResponse,
-    summary="Obtener samples JSON de un archivo de audio generado",
-)
-async def get_audio_samples(nombre_archivo: str) -> StoredAudioSamplesResponse:
-    try:
-        ruta_audio = obtener_ruta_audio(nombre_archivo)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    if not ruta_audio.exists():
-        raise HTTPException(status_code=404, detail="audio no encontrado")
-
-    signal, fs = sf.read(str(ruta_audio), dtype="float32", always_2d=False)
-    return StoredAudioSamplesResponse(
-        **_construir_resumen_audio(
-            signal,
-            int(fs),
-            ruta_audio,
-            incluir_samples=True,
-            max_points=2000,
-        ).model_dump()
-    )
-
-
-def _construir_resumen_audio(
-    signal: np.ndarray,
-    fs: int,
-    ruta_audio,
-    incluir_samples: bool = True,
-    max_points: int = 2000,
-) -> ResumenAudio:
-    signal_array = np.asarray(signal, dtype=np.float32)
-    cantidad_muestras = int(signal_array.shape[0])
-    if signal_array.ndim == 1:
-        cantidad_canales = 1
-    else:
-        cantidad_canales = int(signal_array.shape[1])
-
-    amplitude = None
-    channels = None
-    samples_reducidos = False
-    max_points_respuesta = None
-
-    if incluir_samples:
-        signal_reducida, samples_reducidos = _reducir_para_grafico(signal_array, max_points)
-        max_points_respuesta = max_points
-        if signal_reducida.ndim == 1:
-            amplitude = signal_reducida.tolist()
-        else:
-            channels = signal_reducida.T.tolist()
-
-    valor_maximo = float(np.max(np.abs(signal_array))) if signal_array.size else 0.0
-    return ResumenAudio(
-        fs=fs,
-        duracion=float(cantidad_muestras / fs),
-        cantidad_muestras=cantidad_muestras,
-        cantidad_canales=cantidad_canales,
-        normalizada=valor_maximo <= 1.0,
-        valor_maximo_absoluto=valor_maximo,
-        audio_path=str(ruta_audio) if ruta_audio else None,
-        nombre_archivo=ruta_audio.name if ruta_audio else None,
-        audio_url=f"/api/v1/generation/audio/{ruta_audio.name}" if ruta_audio else None,
-        amplitude=amplitude,
-        channels=channels,
-        samples_reducidos=samples_reducidos,
-        max_points=max_points_respuesta,
-    )
-
-
 def _reducir_para_grafico(signal: np.ndarray, max_points: int) -> tuple[np.ndarray, bool]:
-    signal_array = np.asarray(signal, dtype=np.float32)
-    if max_points < 2:
-        raise ValueError("max_points debe ser mayor o igual a 2")
-
-    if signal_array.ndim == 1:
-        if signal_array.shape[0] <= max_points:
-            return signal_array, False
-        signal_2d = signal_array[:, np.newaxis]
-        reducida = _reducir_multicanal_min_max(signal_2d, max_points)
-        return reducida[:, 0], True
-
-    if signal_array.shape[0] <= max_points:
-        return signal_array, False
-    return _reducir_multicanal_min_max(signal_array, max_points), True
+    arr = np.asarray(signal, dtype=np.float32)
+    if arr.ndim == 1:
+        if arr.shape[0] <= max_points:
+            return arr, False
+        return _reducir_multicanal_min_max(arr[:, np.newaxis], max_points)[:, 0], True
+    if arr.shape[0] <= max_points:
+        return arr, False
+    return _reducir_multicanal_min_max(arr, max_points), True
 
 
 def _reducir_multicanal_min_max(signal_2d: np.ndarray, max_points: int) -> np.ndarray:
@@ -319,16 +177,12 @@ def _reducir_multicanal_min_max(signal_2d: np.ndarray, max_points: int) -> np.nd
     n_bloques = max(1, max_points // 2)
     bordes = np.linspace(0, n_samples, n_bloques + 1, dtype=int)
     bloques = []
-
-    for inicio, fin in zip(bordes[:-1], bordes[1:]):
+    for inicio, fin in zip(bordes[:-1], bordes[1:], strict=True):
         if fin <= inicio:
             continue
         bloque = signal_2d[inicio:fin]
-        minimos = np.min(bloque, axis=0)
-        maximos = np.max(bloque, axis=0)
-        bloques.append(minimos)
-        bloques.append(maximos)
-
+        bloques.append(np.min(bloque, axis=0))
+        bloques.append(np.max(bloque, axis=0))
     if not bloques:
         return signal_2d[:1]
     return np.vstack(bloques).reshape(-1, n_channels).astype(np.float32)
