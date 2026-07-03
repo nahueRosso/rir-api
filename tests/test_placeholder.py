@@ -13,20 +13,18 @@ def test_docs_endpoint_is_available():
 
 
 def test_generation_router_is_registered():
+    """El endpoint devuelve un WAV binario (flujo directo, ver docstring del router)."""
     response = client.post(
         "/api/v1/generation/pink-noise",
-        json={"duracion": 0.01, "fs": 8000, "guardar_audio": False, "max_points": 20},
+        json={"duracion": 0.01, "fs": 8000},
     )
     assert response.status_code == 200
-    data = response.json()
-    assert data["tipo"] == "pink_noise"
-    assert data["fs"] == 8000
-    assert data["audio"]["cantidad_muestras"] == 80
-    assert len(data["audio"]["amplitude"]) <= 20
-    assert data["audio"]["samples_reducidos"] is True
+    assert response.headers["content-type"] == "audio/wav"
+    assert response.content[:4] == b"RIFF"
 
 
 def test_sine_sweep_accepts_tipo_barrido():
+    """El endpoint devuelve un WAV binario (flujo directo, ver docstring del router)."""
     response = client.post(
         "/api/v1/generation/sine-sweep",
         json={
@@ -35,13 +33,8 @@ def test_sine_sweep_accepts_tipo_barrido():
             "duracion": 0.01,
             "fs": 8000,
             "tipo_barrido": "lineal",
-            "guardar_audio": False,
-            "guardar_filtro_inverso": False,
-            "max_points": 20,
         },
     )
     assert response.status_code == 200
-    data = response.json()
-    assert data["tipo"] == "sine_sweep"
-    assert data["tipo_barrido"] == "lineal"
-    assert len(data["sweep"]["amplitude"]) <= 20
+    assert response.headers["content-type"] == "audio/wav"
+    assert response.content[:4] == b"RIFF"

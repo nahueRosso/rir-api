@@ -718,43 +718,175 @@ Sintetiza una respuesta al impulso artificial con valores de T60 conocidos por b
 
 ---
 
-### M3 — Acoustics *(pendiente)*
-- `POST /api/v1/acoustics/schroeder`
-- `POST /api/v1/acoustics/linear-regression`
-- `POST /api/v1/acoustics/parameters`
-- `POST /api/v1/acoustics/lundeby`
+### M3 — Acoustics
+
+Todos los endpoints de esta sección (salvo `linear-regression`) reciben un
+archivo de audio (`multipart/form-data`, campo `file`) — típicamente una RI
+o una RI ya filtrada por banda — y devuelven JSON.
+
+#### `POST /api/v1/acoustics/smoothing`
+Suaviza una señal: envolvente de Hilbert (por defecto) o media móvil de energía.
+
+**Query params:** `ventana` (`"hilbert"` o un entero en muestras, default `"hilbert"`).
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/acoustics/smoothing?ventana=hilbert" \
+  -F "file=@ri.wav"
+```
+
+**Response 200:**
+```json
+{
+  "fs": 44100,
+  "ventana": "hilbert",
+  "tiempo": [0.0, 0.0000227, "..."],
+  "envolvente": [1.0, 0.98, "..."]
+}
+```
+
+---
+
+#### `POST /api/v1/acoustics/schroeder`
+Calcula la integral de Schroeder (curva de decaimiento, en dB, normalizada a 0 dB).
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/acoustics/schroeder -F "file=@ri.wav"
+```
+
+**Response 200:**
+```json
+{
+  "fs": 44100,
+  "tiempo": [0.0, 0.0000227, "..."],
+  "edc_db": [0.0, -0.01, "..."]
+}
+```
+
+---
+
+#### `POST /api/v1/acoustics/linear-regression`
+Regresión lineal por mínimos cuadrados sobre dos arrays numéricos (p. ej. tiempo vs. EDC en dB).
+
+**Request body:**
+```json
+{
+  "x": [0.0, 0.1, 0.2, 0.3],
+  "y": [0.0, -6.0, -12.0, -18.0]
+}
+```
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/acoustics/linear-regression \
+  -H "Content-Type: application/json" \
+  -d '{"x": [0.0, 0.1, 0.2, 0.3], "y": [0.0, -6.0, -12.0, -18.0]}'
+```
+
+**Response 200:**
+```json
+{
+  "pendiente": -60.0,
+  "ordenada_al_origen": 0.0,
+  "r_cuadrado": 1.0
+}
+```
+
+---
+
+#### `POST /api/v1/acoustics/parameters`
+Calcula EDT, T10, T20, T30, T60, D50 y C80 por banda de octava (125–4000 Hz)
+según ISO 3382, a partir de una RI.
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/acoustics/parameters -F "file=@ri.wav"
+```
+
+**Response 200:**
+```json
+{
+  "fs": 44100,
+  "parametros": {
+    "EDT": { "125": 1.55, "250": 1.09, "500": 1.04, "1000": 1.09, "2000": 1.27, "4000": 1.18 },
+    "T10": { "125": 1.40, "250": 1.20, "500": 1.17, "1000": 1.15, "2000": 1.21, "4000": 1.24 },
+    "T20": { "125": 19.98, "250": 1.17, "500": 1.27, "1000": 1.23, "2000": 1.13, "4000": 1.21 },
+    "T30": { "125": 20.12, "250": 11.54, "500": 1.25, "1000": 1.27, "2000": 1.19, "4000": 1.20 },
+    "T60": { "125": 20.12, "250": 11.54, "500": 1.25, "1000": 1.27, "2000": 1.19, "4000": 1.20 },
+    "D50": { "125": 41.99, "250": 33.23, "500": 36.50, "1000": 30.39, "2000": 42.12, "4000": 38.20 },
+    "C80": { "125": 0.49, "250": 0.92, "500": 1.33, "1000": 0.45, "2000": 1.61, "4000": 1.08 }
+  }
+}
+```
+
+> **Nota:** los valores de T20/T30 en bandas graves (125/250 Hz) pueden
+> dispararse cuando la curva de Schroeder se "aplana" por SNR insuficiente
+> (ver Schroeder, 1965). Esto es un efecto físico esperado, no un error de
+> cálculo — el método de Lundeby (`/acoustics/lundeby`) permite estimar el
+> punto de truncamiento óptimo para corregir este problema antes de integrar.
+
+---
+
+#### `POST /api/v1/acoustics/lundeby`
+Estima el punto de truncamiento de la RI y el nivel de ruido de fondo
+(extra credit, ver Lundeby et al., 1995).
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/acoustics/lundeby -F "file=@ri.wav"
+```
+
+**Response 200:**
+```json
+{
+  "fs": 44100,
+  "indice_truncamiento": 39204,
+  "tiempo_truncamiento": 0.889,
+  "nivel_ruido_db": -42.3
+}
+```
 
 ## Validación M1
 
-Las siguientes validaciones manuales fueron realizadas al completar el milestone.
-
 ### Espectro del ruido rosa
 
-<!-- TODO: agregar captura del espectro en Audacity o REW mostrando la pendiente de -3 dB/octava -->
+Densidad espectral de potencia (PSD) calculada con el método de Welch.
+Confirma la pendiente característica de −3 dB/octava del ruido rosa.
 
-### Espectrograma del sine sweep
+![Espectro ruido rosa](docs/validacion/m1_ruido_rosa_psd.png)
 
-<!-- TODO: agregar captura del espectrograma mostrando el barrido logarítmico de f1 a f2 -->
+### Sine sweep — forma de onda y filtro inverso
 
-### Convolución sweep × filtro inverso
+Primeros 50 ms del sine sweep logarítmico (20–20000 Hz) y su filtro inverso correspondiente.
 
-<!-- TODO: agregar gráfica del resultado de la convolución mostrando el impulso -->
+![Sine sweep forma de onda](docs/validacion/m1_sweep_forma_onda.png)
+
+![Filtro inverso](docs/validacion/m1_sweep_filtro_inverso.png)
 
 ### Prueba de reproducción y grabación
 
-<!-- TODO: agregar captura o gráfica de la prueba real con altavoz y micrófono -->
+Captura del sistema de grabación en tiempo real desde micrófono del dispositivo.
+
+![Grabación](docs/validacion/m1_grabacion.png)
 
 ## Validación M2
 
-Las siguientes validaciones manuales fueron realizadas al completar el milestone.
+### Respuesta al impulso h(t)
 
-### RIs de referencia — OpenAIR
+RI obtenida por deconvolución del sine sweep grabado con su filtro inverso.
+Se observa el pico de llegada directa seguido de la cola de reverberación.
 
-<!-- TODO: agregar capturas del procesamiento de las RIs descargadas de OpenAIR -->
+![Respuesta al impulso](docs/validacion/m2_respuesta_impulso.png)
 
-### Comparación con software de referencia (REW / ARTA)
+### Curva de decaimiento L(t)
 
-<!-- TODO: agregar comparación de resultados con REW o ARTA -->
+Señal en escala logarítmica (dB). La curva parte de 0 dB y decae a lo largo
+del tiempo — su pendiente permite estimar el T60 de la sala (calculado en M3).
+
+![Curva de decaimiento](docs/validacion/m2_curva_decaimiento.png)
+
+### Filtro de octava — banda de 1000 Hz
+
+RI filtrada en la banda de 1 kHz según IEC 61260 (Butterworth fase cero).
+Muestra la curva de decaimiento específica de esa banda de frecuencia.
+
+![Filtro octava 1kHz](docs/validacion/m2_filtro_octava_1khz.png)
 
 ## Branching strategy
  
@@ -770,6 +902,5 @@ Las siguientes validaciones manuales fueron realizadas al completar el milestone
 | --- | --- | --- |
 | M0 — Arquitectura | ✅ Completado | 28 Abr 2026 |
 | M1 — Generación de señales | ✅ Completado | 19 May 2026 |
-| M2 — Procesamiento de RI | 🔄 En curso | 16 Jun 2026 |
-| M3 — Producto final | Pendiente | 7 Jul 2026 |
-
+| M2 — Procesamiento de RI | ✅ Completado | 16 Jun 2026 |
+| M3 — Producto final | 🔄 En curso (código completo, falta validación e informe) | 7 Jul 2026 |

@@ -24,7 +24,8 @@ def _leer_audio(file: UploadFile) -> tuple[np.ndarray, int]:
         senal, fs = sf.read(io.BytesIO(file.file.read()), dtype="float32", always_2d=False)
         return np.asarray(senal, dtype=np.float32), int(fs)
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"No se pudo leer '{file.filename}': {exc}") from exc
+        detalle = f"No se pudo leer '{file.filename}': {exc}"
+        raise HTTPException(status_code=400, detail=detalle) from exc
 
 
 def _a_wav(senal: np.ndarray, fs: int) -> io.BytesIO:

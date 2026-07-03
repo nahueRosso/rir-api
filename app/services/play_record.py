@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import mimetypes
+from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Lock, Timer
 from time import monotonic
@@ -267,7 +267,9 @@ def estado_grabacion() -> dict[str, Any]:
     }
 
 
-def detener_grabacion(guardar_archivo: bool = True) -> tuple[np.ndarray, int, Path | None, dict[str, Any]]:
+def detener_grabacion(
+    guardar_archivo: bool = True,
+) -> tuple[np.ndarray, int, Path | None, dict[str, Any]]:
     """Detiene manualmente la grabacion activa y opcionalmente persiste el audio."""
     return _finalizar_grabacion(guardar_archivo=guardar_archivo, motivo_fin="manual")
 

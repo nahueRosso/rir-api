@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum, IntEnum
+from enum import IntEnum, StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -19,7 +19,7 @@ class SampleRateHz(IntEnum):
     HZ_192000 = 192000
 
 
-class TipoBarrido(str, Enum):
+class TipoBarrido(StrEnum):
     LINEAL = "lineal"
     LOGARITMICO = "logaritmico"
 

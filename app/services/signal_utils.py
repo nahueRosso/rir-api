@@ -69,25 +69,21 @@ def sintetizar_ri(
     np.ndarray
         RI sintetizada, normalizada, float32.
     """
-    from app.services.filter import filtro_octava
-
     n = int(duracion * fs)
     t = np.arange(n, dtype=np.float64) / fs
     ri = np.zeros(n, dtype=np.float64)
     rng = np.random.default_rng(seed=42)
 
-    for fc, t60 in t60_por_banda.items():
+    for t60 in t60_por_banda.values():
         if t60 <= 0:
             continue
         alpha = 3.0 * np.log(10.0) / t60  # = 6.908 / T60
         envolvente = np.exp(-alpha * t)
         ruido = rng.standard_normal(n)
-        componente = (ruido * envolvente).astype(np.float32)
-        try:
-            componente = filtro_octava(componente, fc, fs).astype(np.float64)
-        except ValueError:
-            continue
-        ri += componente
+        # Ruido blanco modulado por la envolvente exponencial.
+        # No se filtra en banda aqui: al convolucionar con el sweep de banda
+        # ancha el contenido espectral de la RI queda determinado por el sweep.
+        ri += ruido * envolvente
 
     max_val = np.max(np.abs(ri))
     if max_val > 0:

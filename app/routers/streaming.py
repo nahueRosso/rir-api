@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import io
 import time
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import numpy as np
 import soundfile as sf
@@ -135,7 +135,8 @@ async def desconvolucionar_stream(
             if fs != fs_fi:
                 yield proc.step_event(
                     "error",
-                    f"Frecuencias de muestreo distintas: grabación **{fs} Hz** · filtro **{fs_fi} Hz**",
+                    f"Frecuencias de muestreo distintas: grabación **{fs} Hz** · "
+                    f"filtro **{fs_fi} Hz**",
                 )
                 return
             yield proc.step_event(
@@ -156,7 +157,9 @@ async def desconvolucionar_stream(
 
             # 4. Gráfico RI (primeros 2 s)
             t = time.perf_counter()
-            yield proc.step_event("graficando_ri", "Visualizando la respuesta al impulso (primeros 2 s)…")
+            yield proc.step_event(
+                "graficando_ri", "Visualizando la respuesta al impulso (primeros 2 s)…"
+            )
             fig, ax = proc.crear_figura()
             n_plot = min(len(ri), int(fs * 2))
             t_ms = np.arange(n_plot) / fs * 1000
@@ -320,7 +323,8 @@ async def generar_sweep_stream(
                 _MSG_SWEEP_START if tipo == "logaritmico" else _MSG_SWEEP_LINEAL_START
             )
             params_line = (
-                f"\n\n$f_1 = {f1:.0f}$ Hz,  $f_2 = {f2:.0f}$ Hz,  $T = {duracion}$ s,  $f_s = {fs}$ Hz"
+                f"\n\n$f_1 = {f1:.0f}$ Hz,  $f_2 = {f2:.0f}$ Hz,  "
+                f"$T = {duracion}$ s,  $f_s = {fs}$ Hz"
             )
             yield proc.step_event("generando_sweep", msg_sweep + params_line)
             try:
@@ -343,7 +347,9 @@ async def generar_sweep_stream(
             ax.plot(t_ms, sweep[:n_plot], color="#22d3ee", linewidth=0.6, alpha=0.9)
             ax.set_xlabel("Tiempo (ms)", color="#94a3b8", fontsize=7)
             ax.set_ylabel("Amplitud", color="#94a3b8", fontsize=7)
-            ax.set_title(f"Sine sweep {tipo} ({f1:.0f}–{f2:.0f} Hz)", color="#e2e8f0", fontsize=8, pad=6)
+            ax.set_title(
+                f"Sine sweep {tipo} ({f1:.0f}–{f2:.0f} Hz)", color="#e2e8f0", fontsize=8, pad=6
+            )
             ax.margins(x=0)
             img_sweep = proc.grafico_a_base64(fig)
             yield proc.step_event(
@@ -361,7 +367,9 @@ async def generar_sweep_stream(
             ax2.plot(t_ms[: len(fi_plot)], fi_plot, color="#f472b6", linewidth=0.6, alpha=0.9)
             ax2.set_xlabel("Tiempo (ms)", color="#94a3b8", fontsize=7)
             ax2.set_ylabel("Amplitud", color="#94a3b8", fontsize=7)
-            ax2.set_title(r"Filtro inverso $x_{\mathrm{inv}}(t)$", color="#e2e8f0", fontsize=8, pad=6)
+            ax2.set_title(
+                r"Filtro inverso $x_{\mathrm{inv}}(t)$", color="#e2e8f0", fontsize=8, pad=6
+            )
             ax2.margins(x=0)
             img_fi = proc.grafico_a_base64(fig2)
             yield proc.step_event(
@@ -439,7 +447,8 @@ async def generar_ruido_rosa_stream(
             t = time.perf_counter()
             yield proc.step_event(
                 "graficando_espectro",
-                "Calculando densidad espectral de potencia (PSD) para verificar $P(f) \\propto 1/f$…",
+                "Calculando densidad espectral de potencia (PSD) para verificar "
+                "$P(f) \\propto 1/f$…",
             )
             n_fft = min(len(ruido), 65536)
             espectro = np.abs(np.fft.rfft(ruido[:n_fft])) ** 2
