@@ -52,7 +52,6 @@ def test_cargar_audio_formato_invalido():
     import tempfile
 
     path = os.path.join(tempfile.gettempdir(), "test_audio.mp3")
-    # Crear archivo vacío con extensión no soportada
     with open(path, "w") as f:
         f.write("dummy")
 
@@ -96,7 +95,7 @@ def test_sintetizar_ri_decaimiento():
     Procedimiento:
     1. Sintetizar una RI con T60=2.0s en la banda de 1000 Hz.
     2. Filtrar la RI en la banda de 1000 Hz.
-    3. Calcular la curva de decaimiento en dB.
+    3. Calcular la curva de decaimiento en dB con promedio movil.
     4. Medir el tiempo en que la curva cruza -60 dB.
     5. Verificar que el T60 medido está dentro del 10% del valor especificado.
     """
@@ -110,12 +109,16 @@ def test_sintetizar_ri_decaimiento():
     # Filtrar en banda de 1000 Hz
     ri_filtrada = filtro_octava(ri, fc=1000, fs=fs)
 
-    # Calcular curva de decaimiento en dB
+    # Calcular curva de decaimiento en dB con promedio movil (ventana 50ms)
+    # El promedio movil suaviza las fluctuaciones del ruido sin alterar la tendencia
     energia = ri_filtrada ** 2
-    energia_max = np.max(energia)
+    ventana = int(0.05 * fs)  # 50 ms
+    kernel = np.ones(ventana) / ventana
+    energia_suavizada = np.convolve(energia, kernel, mode='same')
+    energia_max = np.max(energia_suavizada)
     assert energia_max > 0, "La energía de la RI filtrada es cero"
 
-    curva_db = 10 * np.log10(energia / energia_max + np.finfo(float).eps)
+    curva_db = 10 * np.log10(energia_suavizada / energia_max + np.finfo(float).eps)
 
     # Encontrar el tiempo en que la curva cruza -60 dB
     indices_bajo = np.where(curva_db <= -60)[0]
@@ -138,12 +141,6 @@ def test_obtener_ri_pico():
     """
     Verificar que la RI obtenida por deconvolución tiene
     un pico principal claramente identificable.
-
-    Procedimiento:
-    1. Generar sweep y filtro inverso.
-    2. Convolucionar el sweep con una RI sintetizada para simular grabación.
-    3. Aplicar obtener_ri_desde_sweep.
-    4. Verificar que la RI recuperada se parece a la original (correlación > 0.9).
     """
     from scipy.signal import fftconvolve
 
@@ -152,19 +149,11 @@ def test_obtener_ri_pico():
     t60_por_banda = {1000: 1.0}
     duracion_ri = 2.0
 
-    # Generar sweep y filtro inverso
     sweep, filtro_inverso = generar_sine_sweep(20, 20000, duracion_sweep, fs)
-
-    # Sintetizar RI conocida
     ri_original = sintetizar_ri(t60_por_banda, fs, duracion_ri)
-
-    # Simular grabación: convolucionar sweep con RI
     grabacion = fftconvolve(sweep, ri_original)
-
-    # Obtener RI por deconvolución
     ri_recuperada = obtener_ri_desde_sweep(grabacion, filtro_inverso)
 
-    # Verificar que hay un pico claramente identificable
     assert len(ri_recuperada) > 0, "La RI recuperada está vacía"
 
     valor_pico = np.max(np.abs(ri_recuperada))
@@ -192,12 +181,10 @@ def test_filtro_octava_frecuencia_central():
     n = int(duracion * fs)
     t = np.arange(n) / fs
 
-    # Generar senoidal en la frecuencia central
     senal_fc = np.sin(2 * np.pi * fc * t)
     senal_filtrada = filtro_octava(senal_fc, fc=fc, fs=fs)
 
-    # La amplitud de la señal en fc no debe atenuarse más de 3 dB
-    amplitud_entrada = np.sqrt(np.mean(senal_fc[fs:] ** 2))  # ignorar transitorio
+    amplitud_entrada = np.sqrt(np.mean(senal_fc[fs:] ** 2))
     amplitud_salida = np.sqrt(np.mean(senal_filtrada[fs:] ** 2))
 
     assert amplitud_entrada > 0, "La señal de entrada tiene amplitud cero"
@@ -216,7 +203,6 @@ def test_filtro_octava_atenuacion():
     n = int(duracion * fs)
     t = np.arange(n) / fs
 
-    # Señal en frecuencia central y en frecuencia muy fuera de banda (fc/4)
     senal_fc = np.sin(2 * np.pi * fc * t)
     senal_fuera = np.sin(2 * np.pi * (fc / 4) * t)
 
@@ -251,21 +237,18 @@ def test_filtro_octava_respuesta_frecuencia():
     b, a = butter(orden, [W_inf, W_sup], btype='band')
     w, h = freqz(b, a, worN=8192, fs=fs)
 
-    # Ganancia en fc debe ser máxima (0 dB con tolerancia 0.5 dB)
     idx_fc = np.argmin(np.abs(w - fc))
     ganancia_fc_db = 20 * np.log10(np.abs(h[idx_fc]) + np.finfo(float).eps)
     assert ganancia_fc_db >= -0.5, (
         f"Ganancia en fc esperada ~0 dB, se obtuvo {ganancia_fc_db:.2f} dB"
     )
 
-    # Ganancia en f_inf debe ser ~-3 dB (tolerancia 1 dB)
     idx_inf = np.argmin(np.abs(w - f_inf))
     ganancia_inf_db = 20 * np.log10(np.abs(h[idx_inf]) + np.finfo(float).eps)
     assert -4.0 <= ganancia_inf_db <= -2.0, (
         f"Ganancia en f_inf esperada ~-3 dB, se obtuvo {ganancia_inf_db:.2f} dB"
     )
 
-    # Ganancia en f_sup debe ser ~-3 dB (tolerancia 1 dB)
     idx_sup = np.argmin(np.abs(w - f_sup))
     ganancia_sup_db = 20 * np.log10(np.abs(h[idx_sup]) + np.finfo(float).eps)
     assert -4.0 <= ganancia_sup_db <= -2.0, (
@@ -292,7 +275,6 @@ def test_a_escala_log_relacion():
     signal = np.array([1.0, 0.5])
     resultado = a_escala_log(signal)
 
-    # El segundo valor debe ser ~-6 dB
     assert abs(resultado[1] - (-6.0)) <= 0.1, (
         f"Se esperaba -6 dB para amplitud mitad, se obtuvo {resultado[1]:.2f} dB"
     )
