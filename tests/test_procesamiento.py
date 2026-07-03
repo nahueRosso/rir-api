@@ -22,6 +22,7 @@ def _crear_wav_en_memoria(duracion: float = 1.0, fs: int = 44100) -> str:
     """Crea un archivo WAV temporal en disco para los tests de carga."""
     import os
     import tempfile
+
     signal = np.random.randn(int(duracion * fs)).astype(np.float32)
     path = os.path.join(tempfile.gettempdir(), "test_audio.wav")
     sf.write(path, signal, fs)
@@ -49,6 +50,7 @@ def test_cargar_audio_formato_invalido():
     """Verificar que lanza error con formato no soportado."""
     import os
     import tempfile
+
     path = os.path.join(tempfile.gettempdir(), "test_audio.mp3")
     # Crear archivo vacío con extensión no soportada
     with open(path, "w") as f:
