@@ -51,9 +51,20 @@ select = [
     "B",   # flake8-bugbear
     "SIM", # flake8-simplify
 ]
+ignore = [
+    "B008", # FastAPI usa llamadas (File(...), Query(...), Depends(...)) como defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N806"] # nombres tipo W_inf/Sxx habituales en notacion de senales
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.setuptools]
 packages = ["app"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]

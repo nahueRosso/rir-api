@@ -1,20 +1,18 @@
 """Tests requeridos para Milestone 2: Procesamiento de la respuesta al impulso."""
 
-import io
 import numpy as np
 import pytest
 import soundfile as sf
 from scipy.signal import freqz
 
-from app.services.signal_utils import (
-    cargar_audio,
-    sintetizar_ri,
-    obtener_ri_desde_sweep,
-    a_escala_log,
-)
 from app.services.filter import filtro_octava
+from app.services.signal_utils import (
+    a_escala_log,
+    cargar_audio,
+    obtener_ri_desde_sweep,
+    sintetizar_ri,
+)
 from app.services.sine_sweep import generar_sine_sweep
-
 
 # ==============================================================================
 # Helpers
@@ -22,7 +20,9 @@ from app.services.sine_sweep import generar_sine_sweep
 
 def _crear_wav_en_memoria(duracion: float = 1.0, fs: int = 44100) -> str:
     """Crea un archivo WAV temporal en disco para los tests de carga."""
-    import tempfile, os
+    import os
+    import tempfile
+
     signal = np.random.randn(int(duracion * fs)).astype(np.float32)
     path = os.path.join(tempfile.gettempdir(), "test_audio.wav")
     sf.write(path, signal, fs)
@@ -48,7 +48,9 @@ def test_cargar_audio_wav():
 
 def test_cargar_audio_formato_invalido():
     """Verificar que lanza error con formato no soportado."""
-    import tempfile, os
+    import os
+    import tempfile
+
     path = os.path.join(tempfile.gettempdir(), "test_audio.mp3")
     with open(path, "w") as f:
         f.write("dummy")

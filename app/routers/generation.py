@@ -20,8 +20,8 @@ from app.schemas.generation import (
 )
 from app.services.pink_noise import generar_ruido_rosa
 from app.services.play_record import (
-    device,
     detener_grabacion,
+    device,
     estado_grabacion,
     iniciar_grabacion,
 )
@@ -177,7 +177,7 @@ def _reducir_multicanal_min_max(signal_2d: np.ndarray, max_points: int) -> np.nd
     n_bloques = max(1, max_points // 2)
     bordes = np.linspace(0, n_samples, n_bloques + 1, dtype=int)
     bloques = []
-    for inicio, fin in zip(bordes[:-1], bordes[1:]):
+    for inicio, fin in zip(bordes[:-1], bordes[1:], strict=True):
         if fin <= inicio:
             continue
         bloque = signal_2d[inicio:fin]

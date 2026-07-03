@@ -2,13 +2,22 @@
 
 import numpy as np
 from scipy import signal as sig
+from scipy.signal import hilbert
+
+# Ventana de suavizado en muestras (~10 ms a 44100 Hz).
+_VENTANA_SUAVIZADO = 441
 
 
 def filtro_octava(senal: np.ndarray, fc: float, fs: int, orden: int = 4) -> np.ndarray:
-    """Aplica un filtro pasabanda de una octava centrado en ``fc``.
+    """Aplica un filtro pasabanda de una octava centrado en ``fc`` y retorna
+    la envolvente de amplitud (magnitud de la senal analitica) suavizada.
 
     Frecuencias de corte segun IEC 61260:
         f_inf = fc / sqrt(2),  f_sup = fc * sqrt(2)
+
+    El uso de la envolvente elimina los cruces por cero de la senal
+    filtrada, permitiendo medir la curva de decaimiento energetico
+    directamente sobre la salida al cuadrado.
 
     Parameters
     ----------
@@ -24,7 +33,7 @@ def filtro_octava(senal: np.ndarray, fc: float, fs: int, orden: int = 4) -> np.n
     Returns
     -------
     np.ndarray
-        Senal filtrada (float32, misma longitud que la entrada).
+        Envolvente de la senal filtrada (float32, misma longitud que la entrada).
 
     Raises
     ------
@@ -43,9 +52,18 @@ def filtro_octava(senal: np.ndarray, fc: float, fs: int, orden: int = 4) -> np.n
             f"(fc={fc} Hz, fs={fs} Hz)"
         )
 
-    W_inf = f_inf / nyq
-    W_sup = f_sup / nyq
+    w_inf = f_inf / nyq
+    w_sup = f_sup / nyq
 
-    b, a = sig.butter(orden, [W_inf, W_sup], btype="band")
+    b, a = sig.butter(orden, [w_inf, w_sup], btype="band")
     filtrada = sig.filtfilt(b, a, np.asarray(senal, dtype=np.float64))
-    return filtrada.astype(np.float32)
+
+    # Envolvente de amplitud via transformada de Hilbert
+    envolvente = np.abs(hilbert(filtrada))
+
+    # Suavizado por media movil para estabilizar la curva
+    ventana = min(_VENTANA_SUAVIZADO, len(envolvente))
+    kernel = np.ones(ventana, dtype=np.float64) / ventana
+    envolvente_suavizada = np.convolve(envolvente, kernel, mode="same")
+
+    return envolvente_suavizada.astype(np.float32)
