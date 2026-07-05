@@ -40,6 +40,9 @@ env/
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# Marimo (cache/sesion generada por marimo edit/export)
+docs/__marimo__/
+
 # pyenv
 .python-version
 

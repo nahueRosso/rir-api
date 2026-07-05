@@ -6,7 +6,7 @@ Milestone 3: Analisis de parametros acusticos.
 import numpy as np
 from scipy.signal import hilbert
 
-from app.services.filter import filtro_octava
+from app.services.filter import filtro_octava_crudo
 
 _EPS = 1e-12
 _BANDAS_OCTAVA = (125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0)
@@ -170,6 +170,12 @@ def calcular_parametros_acusticos(ri: np.ndarray, fs: int) -> dict[str, dict[str
     if ri_array.size == 0:
         raise ValueError("ri no puede estar vacia")
 
+    # t=0 en las formulas de ISO 3382 es el arribo del sonido directo, no el
+    # inicio del archivo. Si la RI tiene silencio/ruido antes del pico (muy
+    # comun en grabaciones reales sin recortar), D50/C80 salen completamente
+    # mal porque integran esa "nada" como si fuera energia temprana.
+    pico_idx = int(np.argmax(np.abs(ri_array)))
+
     parametros: dict[str, dict[str, float]] = {
         "EDT": {},
         "T10": {},
@@ -182,9 +188,23 @@ def calcular_parametros_acusticos(ri: np.ndarray, fs: int) -> dict[str, dict[str
 
     for fc in _BANDAS_OCTAVA:
         try:
-            banda = filtro_octava(ri_array, fc, fs)
+            banda = filtro_octava_crudo(ri_array, fc, fs)
         except ValueError:
             continue
+
+        banda = banda[pico_idx:]
+        if banda.size < 2:
+            continue
+
+        # Truncar antes del punto donde la RI se pierde en el ruido de fondo
+        # (Lundeby): sin esto, una cola larga de ruido de piso infla la
+        # energia "tardia" y sesga D50/C80/Schroeder en grabaciones reales.
+        try:
+            idx_trunc, _ = metodo_lundeby(banda, fs)
+            if idx_trunc > int(0.1 * fs):
+                banda = banda[:idx_trunc]
+        except ValueError:
+            pass  # senal demasiado corta para Lundeby: usar la banda completa
 
         edc_db = integral_schroeder(banda)
         tiempo = np.arange(len(edc_db)) / fs
