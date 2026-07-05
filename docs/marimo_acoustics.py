@@ -18,9 +18,12 @@ def _(mo):
 
 @app.cell
 def _():
+    import io
+
     import marimo as mo
     import numpy as np
     import matplotlib.pyplot as plt
+    import soundfile as sf
     from scipy import signal as sig
 
     # Paleta (dataviz skill): tinta primaria/secundaria + slots categoricos
@@ -67,6 +70,13 @@ def _():
         idx = np.flatnonzero(mask)
         return tiempo[idx], edc_db[idx]
 
+    def filtro_octava(senal: np.ndarray, fc: float, fs: int, orden: int = 4) -> np.ndarray:
+        """Filtro pasabanda de octava (IEC 61260), sos + sosfiltfilt (ver filter.py)."""
+        f_inf, f_sup = fc / np.sqrt(2), fc * np.sqrt(2)
+        nyq = fs / 2.0
+        sos = sig.butter(orden, [f_inf / nyq, f_sup / nyq], btype="band", output="sos")
+        return sig.sosfiltfilt(sos, np.asarray(senal, dtype=np.float64))
+
     return (
         AQUA,
         BLUE,
@@ -76,12 +86,15 @@ def _():
         VIOLET,
         YELLOW,
         estilo_reporte,
+        filtro_octava,
         integral_schroeder,
+        io,
         mo,
         np,
         plt,
         regresion_lineal,
         segmento,
+        sf,
         sig,
     )
 
@@ -90,8 +103,52 @@ def _():
 def _(mo):
     mo.md(r"""
     ## 1 · Curva de decaimiento (Schroeder + regresiones)
+
+    Subí tu RI real (WAV/FLAC) para usar tu medición; si no subís nada se
+    usa un ejemplo sintético (T60 = 2.0 s) solo para ilustrar el método.
     """)
     return
+
+
+@app.cell
+def _(mo):
+    archivo_ri = mo.ui.file(
+        filetypes=[".wav", ".flac"],
+        label="RI real (opcional)",
+    )
+    banda_fc = mo.ui.dropdown(
+        options=["125", "250", "500", "1000", "2000", "4000"],
+        value="1000",
+        label="Banda de octava",
+    )
+    mo.hstack([archivo_ri, banda_fc])
+    return archivo_ri, banda_fc
+
+
+@app.cell
+def _(archivo_ri, banda_fc, filtro_octava, io, np, sf):
+    fc_seleccionada = float(banda_fc.value)
+
+    if archivo_ri.value:
+        _contenido = archivo_ri.value[0].contents
+        _ri_cruda, fs_ri = sf.read(io.BytesIO(_contenido), dtype="float64", always_2d=False)
+        if _ri_cruda.ndim > 1:
+            _ri_cruda = _ri_cruda.mean(axis=1)
+        _pico = int(np.argmax(np.abs(_ri_cruda)))  # t=0 = arribo del sonido directo
+        _ri_alineada = _ri_cruda[_pico:]
+        fuente_ri = archivo_ri.value[0].name
+    else:
+        fs_ri = 44100
+        _t60_demo = 2.0
+        _n_demo = int(1.2 * fs_ri)
+        _t_demo = np.arange(_n_demo) / fs_ri
+        _alpha_demo = 3.0 * np.log(10.0) / _t60_demo
+        _rng = np.random.default_rng(7)
+        _ri_alineada = _rng.standard_normal(_n_demo) * np.exp(-_alpha_demo * _t_demo)
+        fuente_ri = "ejemplo sintético (T60 = 2.0 s)"
+
+    ri_banda = filtro_octava(_ri_alineada, fc_seleccionada, fs_ri)
+    return fc_seleccionada, fs_ri, fuente_ri, ri_banda
 
 
 @app.cell
@@ -103,58 +160,55 @@ def _(
     VIOLET,
     YELLOW,
     estilo_reporte,
+    fc_seleccionada,
+    fs_ri,
+    fuente_ri,
     integral_schroeder,
+    mo,
     np,
     plt,
     regresion_lineal,
+    ri_banda,
     segmento,
 ):
-    # RI sintetica representativa (T60 = 2.0 s, banda 1000 Hz) para ilustrar
-    # el metodo: no requiere subir un archivo, es puramente didactica.
-    _fs = 44100
-    _t60 = 2.0
-    _dur = 1.2
-    _n = int(_dur * _fs)
-    _t = np.arange(_n) / _fs
-    _alpha = 3.0 * np.log(10.0) / _t60
-    _rng = np.random.default_rng(7)
-    _ri = _rng.standard_normal(_n) * np.exp(-_alpha * _t)
+    _edc = integral_schroeder(ri_banda)
+    _t = np.arange(len(_edc)) / fs_ri
+    _dur = _t[-1] if len(_t) else 1.0
 
-    _edc = integral_schroeder(_ri)
+    def _ajustar(db_inicio, db_fin):
+        _tx, _ty = segmento(_t, _edc, db_inicio, db_fin)
+        if len(_tx) < 2:
+            return None
+        _m, _b = regresion_lineal(_tx, _ty)
+        return (_m, _b, -60.0 / _m) if _m < 0 else None
 
-    # Regresiones EDT / T20 / T30, extrapoladas a -60 dB
-    _t_edt, _y_edt = segmento(_t, _edc, 0.0, -10.0)
-    _t_t20, _y_t20 = segmento(_t, _edc, -5.0, -25.0)
-    _t_t30, _y_t30 = segmento(_t, _edc, -5.0, -35.0)
-
-    _m_edt, _b_edt = regresion_lineal(_t_edt, _y_edt)
-    _m_t20, _b_t20 = regresion_lineal(_t_t20, _y_t20)
-    _m_t30, _b_t30 = regresion_lineal(_t_t30, _y_t30)
-
-    _edt = -60.0 / _m_edt
-    _t20 = -60.0 / _m_t20
-    _t30 = -60.0 / _m_t30
+    _edt_fit = _ajustar(0.0, -10.0)
+    _t20_fit = _ajustar(-5.0, -25.0)
+    _t30_fit = _ajustar(-5.0, -35.0)
 
     fig1, ax1 = plt.subplots(figsize=(6, 4))
     estilo_reporte(ax1)
 
     ax1.plot(_t, _edc, color=INK_PRIMARY, linewidth=1.6, label="Schroeder [dB]", zorder=3)
 
-    _t_ext = np.array([0.0, 60.0 / abs(_m_t30) * 1.05])
-    ax1.plot(
-        _t_ext, _m_edt * _t_ext + _b_edt, "--", color=VIOLET, linewidth=1.4,
-        label=f"EDT (0 a -10 dB) = {_edt:.2f} s",
-    )
-    ax1.plot(
-        _t_ext, _m_t20 * _t_ext + _b_t20, "--", color=YELLOW, linewidth=1.4,
-        label=f"T20 (-5 a -25 dB) = {_t20:.2f} s",
-    )
-    ax1.plot(
-        _t_ext, _m_t30 * _t_ext + _b_t30, "--", color=BLUE, linewidth=1.4,
-        label=f"T30 (-5 a -35 dB) = {_t30:.2f} s",
-    )
+    _t60_ref = next((v[2] for v in (_t30_fit, _t20_fit, _edt_fit) if v), _dur)
+    _t_ext = np.array([0.0, min(_t60_ref * 1.1, _dur * 3)])
+    for _fit, _color, _nombre, _rango in (
+        (_edt_fit, VIOLET, "EDT", "0 a -10 dB"),
+        (_t20_fit, YELLOW, "T20", "-5 a -25 dB"),
+        (_t30_fit, BLUE, "T30", "-5 a -35 dB"),
+    ):
+        if _fit is None:
+            continue
+        _m, _b, _valor = _fit
+        ax1.plot(
+            _t_ext, _m * _t_ext + _b, "--", color=_color, linewidth=1.4,
+            label=f"{_nombre} ({_rango}) = {_valor:.2f} s",
+        )
 
     for _db in (-5, -15, -25, -35):
+        if _edc.min() > _db:
+            continue
         _idx = np.argmin(np.abs(_edc - _db))
         ax1.scatter([_t[_idx]], [_db], s=36, color=AQUA, zorder=4, edgecolors="white", linewidths=0.6)
         ax1.annotate(
@@ -166,10 +220,10 @@ def _(
     ax1.set_ylim(-70, 5)
     ax1.set_xlabel("Tiempo [s]")
     ax1.set_ylabel("Nivel [dB]")
-    ax1.set_title("Curva de Schroeder — regresión y extrapolación a -60 dB")
+    ax1.set_title(f"Curva de Schroeder — {fc_seleccionada:.0f} Hz · {fuente_ri}")
     ax1.legend(frameon=False, fontsize=7.5, loc="lower left")
 
-    fig1
+    mo.vstack([fig1])
     return
 
 
