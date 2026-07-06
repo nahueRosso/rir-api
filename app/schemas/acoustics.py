@@ -29,7 +29,9 @@ class LinearRegressionResponse(BaseModel):
 
 class AcousticParametersResponse(BaseModel):
     fs: int
-    parametros: dict[str, dict[str, float]]
+    # Un valor es None cuando la RI no tiene suficiente rango de decaimiento
+    # en esa banda para ajustar la regresion (NaN en el calculo interno).
+    parametros: dict[str, dict[str, float | None]]
 
 
 class LundebyResponse(BaseModel):

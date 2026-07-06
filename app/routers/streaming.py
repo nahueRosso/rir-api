@@ -11,7 +11,8 @@ import soundfile as sf
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import StreamingResponse
 
-from app.services.filter import filtro_octava
+from app.services.acoustic_parameters import calcular_parametros_acusticos, integral_schroeder
+from app.services.filter import filtro_octava, filtro_octava_crudo
 from app.services.pink_noise import generar_ruido_rosa
 from app.services.signal_utils import a_escala_log, obtener_ri_desde_sweep
 from app.services.sine_sweep import generar_sine_sweep
@@ -35,6 +36,17 @@ def _leer_audio_bytes(data: bytes) -> tuple[np.ndarray, int]:
         return np.asarray(senal, dtype=np.float32), int(fs)
     except Exception as exc:
         raise ValueError(f"No se pudo leer el audio: {exc}") from exc
+
+
+def _sanear_nan(parametros: dict[str, dict[str, float]]) -> dict[str, dict[str, float | None]]:
+    """Reemplaza NaN por None: json.dumps (a diferencia de Pydantic) emite un
+    literal `NaN` no valido para JSON.parse en el navegador."""
+    return {
+        parametro: {
+            banda: (valor if np.isfinite(valor) else None) for banda, valor in valores.items()
+        }
+        for parametro, valores in parametros.items()
+    }
 
 
 def _sse_response(gen: AsyncGenerator[str, None]) -> StreamingResponse:
@@ -81,6 +93,22 @@ _MSG_FILTRO_INVERSO_START = (
     "Filtro inverso: sweep invertido temporalmente con envolvente de corrección de amplitud:\n\n"
     r"$$x_{\mathrm{inv}}(t) = x(T - t)\cdot e^{-\frac{t}{T}\ln\!\frac{\omega_2}{\omega_1}}$$"
     "\n\nLa envolvente compensa la distribución no uniforme de energía del sweep logarítmico."
+)
+
+_MSG_SCHROEDER_START = (
+    "Integral de Schroeder — curva de decaimiento energético en dB:\n\n"
+    r"$$L(t) = 10\log_{10}\!\left(\frac{\int_t^\infty h^2(\tau)\,d\tau}"
+    r"{\int_0^\infty h^2(\tau)\,d\tau}\right)$$"
+    "\n\nSe calcula por banda de octava (filtro IEC 61260) y sobre cada tramo "
+    "de la curva se ajusta una regresión lineal extrapolada a $-60$ dB "
+    "para obtener EDT, T10, T20, T30 y T60 (ISO 3382-1)."
+)
+
+_MSG_PARAMETROS_FINALES = (
+    "Regresiones lineales por tramo — EDT ($0$ a $-10$ dB), T10 ($-5$ a $-15$ dB), "
+    "T20 ($-5$ a $-25$ dB), T30 ($-5$ a $-35$ dB), extrapoladas a $-60$ dB:\n\n"
+    r"$$T = \frac{-60}{m}$$"
+    "\n\n$D_{50}$ y $C_{80}$ integran la energía antes/después de 50 ms y 80 ms."
 )
 
 _MSG_RUIDO_ROSA_START = (
@@ -486,6 +514,100 @@ async def generar_ruido_rosa_stream(
                 audio_filename="pink_noise.wav",
             )
 
+        except Exception as exc:
+            yield proc.step_event("error", str(exc))
+
+    return _sse_response(gen())
+
+
+# ── Parámetros acústicos ISO 3382 ──────────────────────────────────────────────
+
+_BANDAS_ACUSTICAS = (125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0)
+
+
+@router.post(
+    "/calcular-parametros",
+    summary="Calcular parametros acusticos ISO 3382 con progreso en tiempo real",
+)
+async def calcular_parametros_stream(
+    file: UploadFile = File(..., description="WAV de la respuesta al impulso"),
+) -> StreamingResponse:
+    audio_bytes = await file.read()
+
+    async def gen() -> AsyncGenerator[str, None]:
+        proc = StreamingProcessor()
+        t_total = time.perf_counter()
+        try:
+            # 1. Cargar RI
+            t = time.perf_counter()
+            yield proc.step_event("cargando", "Leyendo respuesta al impulso…")
+            ri, fs = _leer_audio_bytes(audio_bytes)
+            yield proc.step_event(
+                "cargando",
+                f"**{fs} Hz** · {len(ri) / fs:.2f} s · {len(ri):,} muestras",
+                tiempo_ms=(time.perf_counter() - t) * 1000,
+            )
+
+            # 2. Curva de Schroeder por banda
+            # t=0 es el arribo del sonido directo (pico de la RI de banda ancha),
+            # no el inicio del archivo — igual que en calcular_parametros_acusticos.
+            pico_idx = int(np.argmax(np.abs(ri)))
+            yield proc.step_event("schroeder", _MSG_SCHROEDER_START)
+            for fc in _BANDAS_ACUSTICAS:
+                fc_int = int(fc)
+                color = BAND_COLORS.get(fc_int, "#22d3ee")
+
+                t = time.perf_counter()
+                try:
+                    banda = filtro_octava_crudo(ri, fc, fs)[pico_idx:]
+                except ValueError as exc:
+                    yield proc.step_event(
+                        f"schroeder_{fc_int}hz",
+                        f"Banda omitida: {exc}",
+                        tiempo_ms=(time.perf_counter() - t) * 1000,
+                    )
+                    continue
+
+                edc_db = integral_schroeder(banda)
+                tiempo_banda = np.arange(len(edc_db)) / fs
+
+                fig, ax = proc.crear_figura(figsize=(8, 2.2))
+                ax.plot(tiempo_banda, edc_db, color=color, linewidth=0.8)
+                ax.set_ylim(-80, 5)
+                ax.set_xlabel("Tiempo (s)", color="#94a3b8", fontsize=7)
+                ax.set_ylabel("dB", color="#94a3b8", fontsize=7)
+                ax.set_title(f"Schroeder — banda {fc_int} Hz", color="#e2e8f0", fontsize=8, pad=5)
+                ax.margins(x=0)
+                img = proc.grafico_a_base64(fig)
+
+                yield proc.step_event(
+                    f"schroeder_{fc_int}hz",
+                    f"Banda **{fc_int} Hz** — curva de decaimiento calculada",
+                    tiempo_ms=(time.perf_counter() - t) * 1000,
+                    grafico=img,
+                )
+
+            # 3. Parámetros finales por banda
+            t = time.perf_counter()
+            yield proc.step_event("parametros", _MSG_PARAMETROS_FINALES)
+            parametros = _sanear_nan(calcular_parametros_acusticos(ri, fs))
+            yield proc.step_event(
+                "parametros",
+                "Parámetros acústicos calculados por banda de octava",
+                tiempo_ms=(time.perf_counter() - t) * 1000,
+                parametros=parametros,
+            )
+
+            # 4. Completado
+            yield proc.step_event(
+                "completado",
+                f"Análisis completado en **{(time.perf_counter() - t_total) * 1000:.0f} ms**",
+                tiempo_ms=(time.perf_counter() - t_total) * 1000,
+                parametros=parametros,
+            )
+
+        except ValueError as exc:
+            yield proc.step_event("error", str(exc))
         except Exception as exc:
             yield proc.step_event("error", str(exc))
 

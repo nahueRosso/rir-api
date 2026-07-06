@@ -40,6 +40,9 @@ env/
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# Marimo (cache/sesion generada por marimo edit/export)
+docs/__marimo__/
+
 # pyenv
 .python-version
 
@@ -51,6 +54,12 @@ env/
 
 # mypy
 .mypy_cache/
+
+# coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 
 # OS
 .DS_Store
