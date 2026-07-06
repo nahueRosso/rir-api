@@ -55,6 +55,12 @@ docs/__marimo__/
 # mypy
 .mypy_cache/
 
+# coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
 # OS
 .DS_Store
 Thumbs.db
