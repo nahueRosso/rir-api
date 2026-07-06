@@ -29,7 +29,8 @@ El software se subdivide en tres capas operacionales: routers (punto de entrada 
 
 <br>
 
-**Generation:**  `POST /api/v1/generation/pink-noise`. Genera ruido rosa y devuelve un archivo WAV. Se usa un filtrado espectral $$\frac{1}{\sqrt{f}}$$ sobre ruido blanco en dominio frecuencial (FFT): $$S_{rosa}(f)=\frac{S_{blanco}(f)}{\sqrt{f}}$$. Densidad espectral de potencia resultante: $$P(f) \propto \frac{1}{f(-3dB/oct)}$$
+**Generation:**  
+* `POST /api/v1/generation/pink-noise`. Genera ruido rosa y devuelve un archivo WAV. Se usa un filtrado espectral $$\frac{1}{\sqrt{f}}$$ sobre ruido blanco en dominio frecuencial (FFT): $$S_{rosa}(f)=\frac{S_{blanco}(f)}{\sqrt{f}}$$. Densidad espectral de potencia resultante: $$P(f) \propto \frac{1}{f(-3dB/oct)}$$
 * `POST /api/v1/generation/sine-sweep`. Genera sine sweep y devuelve un archivo WAV. Barrido sinusoidal logarítmico (Farina, 2000): $$x(t)=sin(\frac{\omega_1T}{ln(\omega_2/\omega_1)}(e^{\frac{t}{T}ln\frac{\omega_2}{\omega_1}}-1))$$, donde $$T$$ es la duración, $$\omega_1=2\pi f_{inicial}$$ y $$\omega_2=2\pi f_{final}$$. 
 * `POST /api/v1/generation/sine-sweep/inverse-filter`. Genera el filtro inverso del sweep, que es el sweep invertido temporalmente con envolvente de corrección de amplitud: $$x_{inv}(t)=x(T-t)\cdot e^{\frac{t}{T}ln\frac{\omega_2}{\omega_1}}$$. 
 * `POST /api/v1/generation/upload-recording`. Recibe una grabación del navegador y la devuelve. 
@@ -47,7 +48,7 @@ El software se subdivide en tres capas operacionales: routers (punto de entrada 
 **Acoustics:**
 * `POST /api/v1/acoustics/smoothing`. Sueviza una señal con envolvente de Hilbert o media móvil. 
 * `POST /api/v1/acoustics/schroeder`. Calcula la integral de Schroeder (curva de decimiento en dB): $$L(t)=10log_{10}(\frac{\int_{t}^{\infty}h^2(\tau) d\tau}{\int_{0}^{\infty}h^2(\tau) d\tau})$$ Se calcula por banda de octava (filtro IEC 61260) y sobre cada tramo de la curva se ajusta una regresión lineal extrapolada a $$-60$$ dB para obtener $$EDT$$, $$T10$$, $$T20$$, $$T30$$ y $$T60$$ (ISO 3382-1).
-* `POST /api/v1/acoustics/linear-regression`. Calcula la regresión lineal por mínimos cuadrados y por tramos: -$$EDT$$ (0 a -10 dB), $$T10$$ (-5 a -15 dB), $$T20$$ (de -5 a -25 dB), $$T30$$ (-5 a -35 dB), extrapoladas a -60 dB. 
+* `POST /api/v1/acoustics/linear-regression`. Calcula la regresión lineal por mínimos cuadrados y por tramos:  $$EDT$$ (0 a -10 dB), $$T10$$ (-5 a -15 dB), $$T20$$ (de -5 a -25 dB), $$T30$$ (-5 a -35 dB), extrapoladas a -60 dB. 
 * `POST /api/v1/acoustics/parameters`. Calcula los parámetros acústicos según ISO 3382, por banda de octava. 
 * `POST /api/v1/acoustics/lundeby`. Estima el truncamiento de la RI por el método de Lundeby. 
 
@@ -61,7 +62,7 @@ El software se subdivide en tres capas operacionales: routers (punto de entrada 
 
 <br>
 
-![Figura 2b: Etapa de filtrado y cálculo de parámetros acústicos.](ruta_a_tu_imagen_b.png)
+![Figura 2b: Etapa de filtrado y cálculo de parámetros acústicos.](DiagramadeparametrosAPI.png)
 ***(b)** Etapa de filtrado y cálculo de parámetros acústicos.*
 
 **Figura 2:** Flujo completo de trabajo para la obtención y el procesamiento de la señal de audio.
@@ -75,4 +76,46 @@ En el filtrado se usó el filtro Butterworth, principalmente porque no introduce
 <br>
 
 ## Resultados
+
+La Figura 3a indica que el ruido rosa generado presenta una caída de -3 dB por octava, como corresponde según la definición de ruido rosa. El sweep logarítmico y su filtro inverso generados se muestran en las Figuras 3b y 3c. 
+
+![Figura 3a: Ruido rosa generado por el software.](PinknoisegeneradoporAPI.png)
+***(a)** Ruido rosa generado por el software.*
+
+![Figura 3b: Sine sweep logarítmico generado por el software.](SinesweepgeneradoporAPI.png)
+***(b)** Sine sweep generado por el software.*
+
+![Figura 3c: Filtro inverso generado por el software.](FiltroinversogeneradoporAPI.png)
+***(c)** Filtro inverso generado por el software.*
+
+**Figura 3:** Señales de excitación generadas por el software.
+
+El resultado de la deconvolución proporcionó la respuesta al impulso $$h(t)$$ y la curva de decaimiento $$L(t)$$ (Figuras 4a y 4b).
+
+![Figura 4a: Respuesta al impulso obtenida.](RIobtenidaporAPI.png)
+***(a)** Respuesta al impulso obtenida por RIR API*
+
+![Figura 4b: Curva de decaimiento obtenida.](CurvadedecaimientoobtenidaporAPI.png)
+***(b)** Curva de decaimiento obtenida por RIR API.*
+
+**Figura 4:** Resultados obtenidos por RIR API tras procesamiento.
+
+Las siguientes imagenes reflejan los resultados obtenidos para una señal ingresada. Se obtuvo una curva de Schroeder en la banda de los 1000 Hz donde tanto el $$EDT$$ , el $$T20$$ y $$T30$$ (todas extrapoladas a -60 dB) tienen valores muy cercanos. El gráfico de banco de filtros de octava de la Figura 6 confirma que cada banda cruza a -3 dB en sus flancos. 
+
+![Figura 5: Curva de Shroeder en la banda de 1000 Hz.](Curvadeschroeder1000HzAPI.png)
+
+**Figura 5:** Curva de Schroeder en la banda de 1000 Hz acotada + regresiones. 
+
+![Figura 6: Banco de filtros de octava.](BancodefiltrosdeoctavaAPI.png)
+
+**Figura 6:** Banco de filtros de octava (IEC 61260)
+
+![Figura 7: Comparación de T30 con software comercial](ComparacionT30API.png)
+
+**Figura 7:** Validación de T30 RIR-API vs REW (misma RI).
+
+Se hizo una validación del T30 calculado por RIR API al compararlo con el software REW ante la misma RI. Los resultados obtenidos no difieren en más de +- 0,12 segundos en ninguna banda de frecuencias. El software RIR API muestra alta fiabilidad en los cálculos realizados. 
+
+
+
 
