@@ -9,7 +9,7 @@
 
 ## Introducción
 
-En acústica de salas es imprescindible contar con equipamiento para llevar adelante las mediciones de parámetros acústicos. Estas mediciones permiten caracterizar a cada recinto e implementar soluciones acústicas de ser necesario. Para ello se desarrolló este software, que propone una API REST abierta que automatiza todo el proceso: desde señales de excitación (sine sweep y ruido rosa), a grabación de audio, procesamiento de respuesta al impuslo y devolución de parámetros acústicos. 
+En acústica de salas es imprescindible contar con equipamiento para llevar adelante las mediciones de parámetros acústicos. Estas mediciones permiten caracterizar a cada recinto e implementar soluciones acústicas de ser necesario. Para ello se desarrolló este software, que propone una API REST abierta que automatiza todo el proceso: desde señales de excitación (sine sweep y ruido rosa), a grabación de audio, procesamiento de respuesta al impulso y devolución de parámetros acústicos. 
 
 La API REST fue desarrollada en FastAPI con una arquitectura dividida en tres módulos (generación de señales de excitación, procesamiento de RI y cálculo de parámetros) y en lenguaje Python. Los parámetros que devuelve son EDT, T20, T30, T60, D50 y C80 según norma ISO 3382. El presente informe detalla la arquitectura del software junto a los fundamentos matemáticos detras de la lógica de los algoritmos y comparaciones con softwares comerciales. 
 
@@ -19,8 +19,9 @@ La API REST fue desarrollada en FastAPI con una arquitectura dividida en tres m�
 
 El software se subdivide en tres capas operacionales: routers (punto de entrada del protocolo http, documentan endpoints y delegan), schemas (se definen los esquemas de peticiones y respuestas con Pydantic) y services (concentran la lógica de negocio y DSP). La arquitectura se divide también en tres módulos, correspondientes a cada etapa: generation (generación de ruido rosa, sine sweep logarítmico y flujo de reproducción/grabación), processing (carga de audio, obtención de RI, filtrado por octava, escala logarítmica y síntesis de la RI) y acoustics (integral de Schroeder, regresión lineal y cálculo de parámetros acústicos). La figura 1 indica el diagrama de arquitectura y sus endpoints. 
 
-![Figura 1: Diagrama de arquitectura de RIR API](ArquitecturaAPIREST.png)
-
+![Figura 1: Diagrama de arquitectura de RIR API](public/ArquitecturaAPIREST.png)
+<br>
+**Figura 1:** Diagrama de arquitectura de RIR API
 <br>
 
 ### Endpoints clave
@@ -38,7 +39,7 @@ El software se subdivide en tres capas operacionales: routers (punto de entrada 
 <br>
 
 **Processing:**
-* `POST /api/v1/processing/impulse-response`. Realiza la deconvolución: $$h(t)\approx y(t)*x_{inv}(t)$$, donde $$y(t)$$ es la grabación y $$x_{inv}(t)$$ es el filtro inverso del sweep. Devuelve la respuesta al impuslo (RI).
+* `POST /api/v1/processing/impulse-response`. Realiza la deconvolución: $$h(t)\approx y(t)*x_{inv}(t)$$, donde $$y(t)$$ es la grabación y $$x_{inv}(t)$$ es el filtro inverso del sweep. Devuelve la respuesta al impulso (RI).
 * `POST /api/v1/processing/octave-filter`. Filtra la RI por banda de octava.
 * `POST /api/v1/processing/log-scale`. Convierte la RI a escala logarítmica (dB): $$L(t)=20log_{10}(\frac{|h(t)|}{max|h(t)|})$$. Piso dinámico en $$-120$$ dB para evitar $$-\infty$$. Máximo normalizado a $$0$$ dB. 
 * `POST /api/v1/processing/synthesize-ri`. Sintetiza la RI con T60 conocidos por banda. 
@@ -46,7 +47,7 @@ El software se subdivide en tres capas operacionales: routers (punto de entrada 
 <br>
 
 **Acoustics:**
-* `POST /api/v1/acoustics/smoothing`. Sueviza una señal con envolvente de Hilbert o media móvil. 
+* `POST /api/v1/acoustics/smoothing`. Suaviza una señal con envolvente de Hilbert o media móvil. 
 * `POST /api/v1/acoustics/schroeder`. Calcula la integral de Schroeder (curva de decimiento en dB): $$L(t)=10log_{10}(\frac{\int_{t}^{\infty}h^2(\tau) d\tau}{\int_{0}^{\infty}h^2(\tau) d\tau})$$ Se calcula por banda de octava (filtro IEC 61260) y sobre cada tramo de la curva se ajusta una regresión lineal extrapolada a $$-60$$ dB para obtener $$EDT$$, $$T10$$, $$T20$$, $$T30$$ y $$T60$$ (ISO 3382-1).
 * `POST /api/v1/acoustics/linear-regression`. Calcula la regresión lineal por mínimos cuadrados y por tramos:  $$EDT$$ (0 a -10 dB), $$T10$$ (-5 a -15 dB), $$T20$$ (de -5 a -25 dB), $$T30$$ (-5 a -35 dB), extrapoladas a -60 dB. 
 * `POST /api/v1/acoustics/parameters`. Calcula los parámetros acústicos según ISO 3382, por banda de octava. 
@@ -54,19 +55,16 @@ El software se subdivide en tres capas operacionales: routers (punto de entrada 
 
 <br>
 
-### Flujo de trabajo en subfiguras
-*(Nota: Exportá tus diagramas de TikZ como imágenes e insertalas acá)*
-
-![Figura 2a: Etapa de medición y obtención de la Respuesta al Impulso (RI).](DiagramadeprocesamientoAPI.png)
+![Figura 2a: Etapa de medición y obtención de la Respuesta al Impulso (RI).](public/DiagramadeprocesamientoAPI.png)
+<br>
 ***(a)** Etapa de medición y obtención de la Respuesta al Impulso (RI).*
-
 <br>
 
-![Figura 2b: Etapa de filtrado y cálculo de parámetros acústicos.](DiagramadeparametrosAPI.png)
+![Figura 2b: Etapa de filtrado y cálculo de parámetros acústicos.](public/DiagramadeparametrosAPI.png)
+<br>
 ***(b)** Etapa de filtrado y cálculo de parámetros acústicos.*
-
+<br>
 **Figura 2:** Flujo completo de trabajo para la obtención y el procesamiento de la señal de audio.
-
 <br>
 
 ### Herramientas utilizadas y decisiones de diseño
@@ -79,41 +77,47 @@ En el filtrado se usó el filtro Butterworth, principalmente porque no introduce
 
 La Figura 3a indica que el ruido rosa generado presenta una caída de -3 dB por octava, como corresponde según la definición de ruido rosa. El sweep logarítmico y su filtro inverso generados se muestran en las Figuras 3b y 3c. 
 
-![Figura 3a: Ruido rosa generado por el software.](PinknoisegeneradoporAPI.png)
+![Figura 3a: Ruido rosa generado por el software.](public/PinknoisegeneradoporAPI.png)
+<br>
 ***(a)** Ruido rosa generado por el software.*
 
-![Figura 3b: Sine sweep logarítmico generado por el software.](SinesweepgeneradoporAPI.png)
+![Figura 3b: Sine sweep logarítmico generado por el software.](public/SinesweepgeneradoporAPI.png)
+<br>
 ***(b)** Sine sweep generado por el software.*
 
-![Figura 3c: Filtro inverso generado por el software.](FiltroinversogeneradoporAPI.png)
+![Figura 3c: Filtro inverso generado por el software.](public/FiltroinversogeneradoporAPI.png)
+<br>
 ***(c)** Filtro inverso generado por el software.*
-
+<br>
 **Figura 3:** Señales de excitación generadas por el software.
-
+<br>
+<br>
 El resultado de la deconvolución proporcionó la respuesta al impulso $$h(t)$$ y la curva de decaimiento $$L(t)$$ (Figuras 4a y 4b).
 
-![Figura 4a: Respuesta al impulso obtenida.](RIobtenidaporAPI.png)
+![Figura 4a: Respuesta al impulso obtenida.](public/RIobtenidaporAPI.png)
+<br>
 ***(a)** Respuesta al impulso obtenida por RIR API*
 
-![Figura 4b: Curva de decaimiento obtenida.](CurvadedecaimientoobtenidaporAPI.png)
+![Figura 4b: Curva de decaimiento obtenida.](public/CurvadedecaimientoobtenidaporAPI.png)
+<br>
 ***(b)** Curva de decaimiento obtenida por RIR API.*
-
+<br>
 **Figura 4:** Resultados obtenidos por RIR API tras procesamiento.
 
 Las siguientes imagenes reflejan los resultados obtenidos para una señal ingresada. Se obtuvo una curva de Schroeder en la banda de los 1000 Hz donde tanto el $$EDT$$ , el $$T20$$ y $$T30$$ (todas extrapoladas a -60 dB) tienen valores muy cercanos. El gráfico de banco de filtros de octava de la Figura 6 confirma que cada banda cruza a -3 dB en sus flancos. 
 
-![Figura 5: Curva de Shroeder en la banda de 1000 Hz.](Curvadeschroeder1000HzAPI.png)
-
+![Figura 5: Curva de Schroeder en la banda de 1000 Hz.](public/Curvadeschroeder1000HzAPI.png)
+<br>
 **Figura 5:** Curva de Schroeder en la banda de 1000 Hz acotada + regresiones. 
-
-![Figura 6: Banco de filtros de octava.](BancodefiltrosdeoctavaAPI.png)
-
+<br>
+![Figura 6: Banco de filtros de octava.](public/BancodefiltrosdeoctavaAPI.png)
+<br>
 **Figura 6:** Banco de filtros de octava (IEC 61260)
-
-![Figura 7: Comparación de T30 con software comercial](ComparacionT30API.png)
-
+<br>
+![Figura 7: Comparación de T30 con software comercial](public/ComparacionT30API.png)
+<br>
 **Figura 7:** Validación de T30 RIR-API vs REW (misma RI).
-
+<br>
 Se hizo una validación del T30 calculado por RIR API al compararlo con el software REW ante la misma RI. Los resultados obtenidos no difieren en más de +- 0,12 segundos en ninguna banda de frecuencias. El software RIR API muestra alta fiabilidad en los cálculos realizados. 
 
 
