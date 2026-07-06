@@ -105,18 +105,22 @@ El resultado de la deconvolución proporcionó la respuesta al impulso $$h(t)$$ 
 **Figura 4:** Resultados obtenidos por RIR API tras procesamiento.
 
 Las siguientes imagenes reflejan los resultados obtenidos para una señal ingresada. Se obtuvo una curva de Schroeder en la banda de los 1000 Hz donde tanto el $$EDT$$ , el $$T20$$ y $$T30$$ (todas extrapoladas a -60 dB) tienen valores muy cercanos. El gráfico de banco de filtros de octava de la Figura 6 confirma que cada banda cruza a -3 dB en sus flancos. 
-
-![Figura 5: Curva de Schroeder en la banda de 1000 Hz.](public/Curvadeschroeder1000HzAPI.png)
+<br>
+<br>
+![Figura 5: Curva de Schroeder en la banda de 1000 Hz.](public/Curvadeschroeder1000HzAPI.jpeg)
 <br>
 **Figura 5:** Curva de Schroeder en la banda de 1000 Hz acotada + regresiones. 
 <br>
-![Figura 6: Banco de filtros de octava.](public/BancodefiltrosdeoctavaAPI.png)
+<br>
+![Figura 6: Banco de filtros de octava.](public/BancodefiltrosdeoctavaAPI.jpeg)
 <br>
 **Figura 6:** Banco de filtros de octava (IEC 61260)
 <br>
-![Figura 7: Comparación de T30 con software comercial](public/ComparacionT30API.png)
+<br>
+![Figura 7: Comparación de T30 con software comercial](public/ComparacionT30API.jpeg)
 <br>
 **Figura 7:** Validación de T30 RIR-API vs REW (misma RI).
+<br>
 <br>
 Se hizo una validación del T30 calculado por RIR API al compararlo con el software REW ante la misma RI. Los resultados obtenidos no difieren en más de +- 0,12 segundos en ninguna banda de frecuencias. El software RIR API muestra alta fiabilidad en los cálculos realizados. 
 
