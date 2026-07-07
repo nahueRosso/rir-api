@@ -143,24 +143,50 @@ flowchart LR
         RG[generation router]
         SCHG[schemas.generation]
         SG[services.pink_noise<br/>services.sine_sweep<br/>services.play_record]
+        G1[generar_ruido_rosa]
+        G2[generar_sine_sweep]
+        G3[reproducir_y_grabar]
         RG --> SCHG
         RG --> SG
+        SG --> G1
+        SG --> G2
+        SG --> G3
     end
 
     subgraph PROC[Processing]
         RP[processing router]
         SCHP[schemas.processing]
         SP[services.signal_utils<br/>services.filter]
+        P1[cargar_audio]
+        P2[obtener_ri_desde_sweep]
+        P3[filtro_octava]
+        P4[a_escala_log]
+        P5[sintetizar_ri]
         RP --> SCHP
         RP --> SP
+        SP --> P1
+        SP --> P2
+        SP --> P3
+        SP --> P4
+        SP --> P5
     end
 
     subgraph AC[Acoustics]
         RA[acoustics router]
         SCHA[schemas.acoustics]
         SA[services.acoustic_parameters]
+        A1[suavizar_signal]
+        A2[integral_schroeder]
+        A3[regresion_lineal]
+        A4[calcular_parametros_acusticos]
+        A5[metodo_lundeby]
         RA --> SCHA
         RA --> SA
+        SA --> A1
+        SA --> A2
+        SA --> A3
+        SA --> A4
+        SA --> A5
     end
 
     subgraph STR[Streaming]
@@ -182,11 +208,13 @@ flowchart LR
     classDef router fill:#dbeafe,stroke:#2563eb,color:#0f172a
     classDef schema fill:#dcfce7,stroke:#16a34a,color:#052e16
     classDef service fill:#fef3c7,stroke:#d97706,color:#451a03
+    classDef fn fill:#f3f4f6,stroke:#6b7280,color:#111827
 
     class CLIENTE,API entry
     class RH,RG,RP,RA,RS router
     class SCHC,SCHG,SCHP,SCHA schema
     class SG,SP,SA service
+    class G1,G2,G3,P1,P2,P3,P4,P5,A1,A2,A3,A4,A5 fn
 ```
 
 ## Endpoints
