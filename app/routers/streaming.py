@@ -12,7 +12,7 @@ from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.services.acoustic_parameters import calcular_parametros_acusticos, integral_schroeder
-from app.services.filter import filtro_octava, filtro_octava_crudo
+from app.services.filter import filtro_octava_crudo
 from app.services.pink_noise import generar_ruido_rosa
 from app.services.signal_utils import a_escala_log, obtener_ri_desde_sweep
 from app.services.sine_sweep import generar_sine_sweep
@@ -285,7 +285,7 @@ async def filtrar_bandas_stream(
                     _msg_banda_start(fc, fs),
                 )
                 try:
-                    filtrada = filtro_octava(ri, fc, fs)
+                    filtrada = filtro_octava_crudo(ri, fc, fs)
                 except ValueError as exc:
                     yield proc.step_event(
                         f"filtrando_{fc_int}hz",

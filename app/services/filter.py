@@ -2,7 +2,6 @@
 
 import numpy as np
 from scipy import signal as sig
-from scipy.signal import hilbert
 
 
 def filtro_octava_crudo(senal: np.ndarray, fc: float, fs: int, orden: int = 4) -> np.ndarray:
@@ -59,34 +58,3 @@ def filtro_octava_crudo(senal: np.ndarray, fc: float, fs: int, orden: int = 4) -
     # estable para ese mismo caso.
     sos = sig.butter(orden, [w_inf, w_sup], btype="band", output="sos")
     return sig.sosfiltfilt(sos, np.asarray(senal, dtype=np.float64))
-
-
-def filtro_octava(senal: np.ndarray, fc: float, fs: int, orden: int = 4) -> np.ndarray:
-    """Aplica un filtro pasabanda de una octava centrado en ``fc`` y retorna
-    la envolvente de amplitud (magnitud de la senal analitica) suavizada.
-
-    Pensada para visualizacion/reproduccion (curvas de decaimiento legibles,
-    audio de banda). Para calculos de energia por ventana (Schroeder, D50,
-    C80) usar :func:`filtro_octava_crudo`.
-
-    Returns
-    -------
-    np.ndarray
-        Envolvente de la senal filtrada (float32, misma longitud que la entrada).
-
-    Raises
-    ------
-    ValueError
-        Si la banda no es realizable para el fs dado.
-    """
-    filtrada = filtro_octava_crudo(senal, fc, fs, orden)
-
-    # Envolvente de amplitud via transformada de Hilbert
-    envolvente = np.abs(hilbert(filtrada))
-
-    # Suavizado por media movil para estabilizar la curva (~10 ms)
-    ventana = min(max(1, round(fs * 0.01)), len(envolvente))
-    kernel = np.ones(ventana, dtype=np.float64) / ventana
-    envolvente_suavizada = np.convolve(envolvente, kernel, mode="same")
-
-    return envolvente_suavizada.astype(np.float32)

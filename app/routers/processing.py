@@ -10,7 +10,7 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.schemas.processing import LogScaleResponse, SynthesizeRiRequest
-from app.services.filter import filtro_octava
+from app.services.filter import filtro_octava_crudo
 from app.services.signal_utils import a_escala_log, obtener_ri_desde_sweep, sintetizar_ri
 
 router = APIRouter(prefix="/api/v1/processing", tags=["processing"])
@@ -74,7 +74,7 @@ async def octave_filter(
     senal, fs = _leer_audio(file)
 
     try:
-        filtrada = filtro_octava(senal, fc, fs, orden)
+        filtrada = filtro_octava_crudo(senal, fc, fs, orden)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

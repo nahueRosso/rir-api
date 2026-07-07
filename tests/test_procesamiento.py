@@ -5,7 +5,8 @@ import pytest
 import soundfile as sf
 from scipy.signal import freqz
 
-from app.services.filter import filtro_octava
+from app.services.acoustic_parameters import integral_schroeder
+from app.services.filter import filtro_octava_crudo
 from app.services.signal_utils import (
     a_escala_log,
     cargar_audio,
@@ -108,14 +109,10 @@ def test_sintetizar_ri_decaimiento():
     ri = sintetizar_ri(t60_por_banda, fs, duracion)
 
     # Filtrar en banda de 1000 Hz
-    ri_filtrada = filtro_octava(ri, fc=1000, fs=fs)
+    ri_filtrada = filtro_octava_crudo(ri, fc=1000, fs=fs)
 
-    # Calcular curva de decaimiento en dB
-    energia = ri_filtrada ** 2
-    energia_max = np.max(energia)
-    assert energia_max > 0, "La energía de la RI filtrada es cero"
-
-    curva_db = 10 * np.log10(energia / energia_max + np.finfo(float).eps)
+    # Calcular curva de decaimiento en dB (integral de Schroeder)
+    curva_db = integral_schroeder(ri_filtrada)
 
     # Encontrar el tiempo en que la curva cruza -60 dB
     indices_bajo = np.where(curva_db <= -60)[0]
@@ -194,7 +191,7 @@ def test_filtro_octava_frecuencia_central():
 
     # Generar senoidal en la frecuencia central
     senal_fc = np.sin(2 * np.pi * fc * t)
-    senal_filtrada = filtro_octava(senal_fc, fc=fc, fs=fs)
+    senal_filtrada = filtro_octava_crudo(senal_fc, fc=fc, fs=fs)
 
     # La amplitud de la señal en fc no debe atenuarse más de 3 dB
     amplitud_entrada = np.sqrt(np.mean(senal_fc[fs:] ** 2))  # ignorar transitorio
@@ -220,8 +217,8 @@ def test_filtro_octava_atenuacion():
     senal_fc = np.sin(2 * np.pi * fc * t)
     senal_fuera = np.sin(2 * np.pi * (fc / 4) * t)
 
-    salida_fc = filtro_octava(senal_fc, fc=fc, fs=fs)
-    salida_fuera = filtro_octava(senal_fuera, fc=fc, fs=fs)
+    salida_fc = filtro_octava_crudo(senal_fc, fc=fc, fs=fs)
+    salida_fuera = filtro_octava_crudo(senal_fuera, fc=fc, fs=fs)
 
     amp_fc = np.sqrt(np.mean(salida_fc[fs:] ** 2))
     amp_fuera = np.sqrt(np.mean(salida_fuera[fs:] ** 2))
