@@ -170,9 +170,9 @@ La principal limitación encontrada que motiva un trabajo futuro es la de no pod
 
 ## Referencias
 
-https://www.iso.org/standard/40979.html
+[ISO 3382-1:2009 - Measurement of room acoustic parameters](https://www.iso.org/standard/40979.html)
 <br>
-https://www.iso.org/standard/69056.html
+[IEC 61260-1: 2014 - Octave band and frctional octave band filters](https://www.iso.org/standard/69056.html)
 <br>
 Farina, A. (2000). "Simultaneous measurement of impulse response and distortion with a swept-sine technique." 108th AES Convention
 <br>
