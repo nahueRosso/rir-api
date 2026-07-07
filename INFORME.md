@@ -69,7 +69,7 @@ El software se subdivide en tres capas operacionales: routers (punto de entrada 
 
 ### Herramientas utilizadas y decisiones de diseño
 
-En el filtrado se usó el filtro Butterworth, principalmente porque no introduce ringing y conserva fielmente la pendiente real del decaimiento de la sala. También, en lugar de devolver la señal de audio común filtrada, devuelve la envolvente de Hilbert ya suavizada. Se automatizó Lundeby de manera que todos los parámetros se calculan usando esta automatización y aparezca el tiempo de truncamiento. Se agregó un módulo extra de streaming, cuyos endpoints devuelven resultados como eventos Server-Sent Events (SSE) con progreso en tiempo real. 
+En el filtrado se usó el filtro Butterworth, principalmente porque no introduce ringing y conserva fielmente la pendiente real del decaimiento de la sala. También, en lugar de devolver la señal de audio común filtrada, devuelve la envolvente de Hilbert ya suavizada. Se automatizó Lundeby de manera que todos los parámetros se calculan usando esta automatización y aparezca el tiempo de truncamiento. Se agregó un módulo extra de streaming, cuyos endpoints devuelven resultados como eventos Server-Sent Events (SSE) con progreso en tiempo real. Para tal módulo se implementó un test donde se reemplaza un NaN por un None (ya que json no soporta NaN).
 
 <br>
 
@@ -122,7 +122,21 @@ Las siguientes imagenes reflejan los resultados obtenidos para una señal ingres
 **Figura 7:** Validación de T30 RIR-API vs REW (misma RI).
 <br>
 <br>
-Se hizo una validación del T30 calculado por RIR API al compararlo con el software REW ante la misma RI. Los resultados obtenidos no difieren en más de +- 0,12 segundos en ninguna banda de frecuencias. El software RIR API muestra alta fiabilidad en los cálculos realizados. 
+Se hizo una validación del T30 calculado por RIR API al compararlo con el software REW ante la misma RI. Los resultados obtenidos no difieren en más de +- 0,12 segundos en ninguna banda de frecuencias. El software RIR API muestra alta fiabilidad en los cálculos realizados. La tabla de la Figura 8 demuestra el poco error relativo porcentual en comparación con los resultados del software REW. Tan solo en el cálculo del Early Decay Time en la banda de 500 Hz se dió una diferencia considerable, aunque menor al 20%. 
+
+![Figura 8: Tabla comparativa RIR API vs REW](TablacomparativaAPIREW.png)
+<br>
+**Figura 8:** Tabla comparativa RIR API vs REW.
+
+Las diferencias entre los resultados puede atribuirse a detalles algorítmicos (diferencias en la estrategia de filtrado, el orden de las operaciones, tamaño de la ventana de la envolvente). Específicamente hablando del Early Decay Time, se trata de una medición muy breve del sonido y resulta algo más caótica y por ello la dispersión es mayor. 
+
+<br>
+
+## Conclusiones
+
+Se logró diseñar, implementar y testear una API REST basada en FastAPI que automatiza de extremo a extremo el flujo de medición acústica bajo la norma ISO 3382 (generación, adquisición, deconvolución, filtrado y cálculo). Se verificó que las señales generadas cumplan con la matemática apropiada (ruido rosa con pendiente - 3 dB por octava y sine sweep logarítmico con su filtro inverso) y que los filtros aplicados cumplan con la norma IEC 61260. La API fue contrastada con un software estándar en la industria demostrando alta confiabilidad, con desviaciones no superiores a +- 0,12 segundos en todas las bandas de frecuencias. Además, la incorporación del módulo de streaming permite resolver el problema de conversión de datos NaN de NumPy a None de Python. 
+
+La principal limitación encontrada que motiva un trabajo futuro es la de no poder medir el rango audible en su totalidad, cosa que se podría si se aplicaran filtros por tercio de octava. Se podrían desarrollar más algoritmos para la medición de otros parámetros acústicos, como el STI (Speech Transmission Index). 
 
 
 
