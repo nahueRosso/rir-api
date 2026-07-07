@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rir-api"
-version = "0.2.0"
+version = "1.0.0"
 description = "API REST para procesamiento y analisis de respuestas al impulso segun ISO 3382"
 readme = "README.md"
 license = "MIT"
