@@ -31,7 +31,7 @@ La API REST fue desarrollada en FastAPI con una arquitectura dividida en tres m�
 
 El software se subdivide en tres capas operacionales: routers (punto de entrada del protocolo http, documentan endpoints y delegan), schemas (se definen los esquemas de peticiones y respuestas con Pydantic) y services (concentran la lógica de negocio y DSP). La arquitectura se divide también en tres módulos, correspondientes a cada etapa: generation (generación de ruido rosa, sine sweep logarítmico y flujo de reproducción/grabación), processing (carga de audio, obtención de RI, filtrado por octava, escala logarítmica y síntesis de la RI) y acoustics (integral de Schroeder, regresión lineal y cálculo de parámetros acústicos). La figura 1 indica el diagrama de arquitectura y sus endpoints. 
 
-![Figura 1: Diagrama de arquitectura de RIR API](public/ArquitecturaAPIREST.png)
+![Figura 1: Diagrama de arquitectura de RIR API](public/ArquitecturaAPIREST2.png)
 <br>
 **Figura 1:** Diagrama de arquitectura de RIR API
 <br>
@@ -82,6 +82,21 @@ El software se subdivide en tres capas operacionales: routers (punto de entrada 
 ### Herramientas utilizadas y decisiones de diseño
 
 En el filtrado se usó el filtro Butterworth, principalmente porque no introduce ringing y conserva fielmente la pendiente real del decaimiento de la sala. También, en lugar de devolver la señal de audio común filtrada, devuelve la envolvente de Hilbert ya suavizada. Se automatizó Lundeby de manera que todos los parámetros se calculan usando esta automatización y aparezca el tiempo de truncamiento. Se agregó un módulo extra de streaming, cuyos endpoints devuelven resultados como eventos Server-Sent Events (SSE) con progreso en tiempo real. Para tal módulo se implementó un test donde se reemplaza un NaN por un None (ya que json no soporta NaN).
+
+| Herramienta | Uso |
+| :--- | :--- |
+| **Python 3.10+** | Lenguaje de desarrollo |
+| **FastAPI** | Framework para la API REST |
+| **Pydantic** | Validacion de datos y schemas |
+| **Uvicorn** | Servidor ASGI para correr la API |
+| **NumPy / SciPy** | Procesamiento de senales y calculos numericos |
+| **sounddevice** | Reproduccion y grabacion de audio |
+| **matplotlib** | Visualizacion de resultados |
+| **pytest** | Framework de testing |
+| **ruff** | Linting y formateo de codigo |
+| **Git / GitHub** | Control de versiones y colaboracion |
+| **GitHub Actions** | Integracion continua (CI) |
+| **uv** | Gestion de entornos y dependencias |
 
 <br>
 
@@ -151,6 +166,15 @@ Se logró diseñar, implementar y testear una API REST basada en FastAPI que aut
 
 La principal limitación encontrada que motiva un trabajo futuro es la de no poder medir el rango audible en su totalidad, cosa que se podría si se aplicaran filtros por tercio de octava. También se podrían desarrollar más algoritmos para la medición de otros parámetros acústicos, como el STI (Speech Transmission Index). 
 
+<br>
 
+## Referencias
 
+https://www.iso.org/standard/40979.html
+<br>
+https://www.iso.org/standard/69056.html
+<br>
+Farina, A. (2000). "Simultaneous measurement of impulse response and distortion with a swept-sine technique." 108th AES Convention
+<br>
+Schroeder, M. R. (1965). "New method of measuring reverberation time." JASA, 37(3), 409-412
 
