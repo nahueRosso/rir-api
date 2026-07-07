@@ -116,7 +116,7 @@ El resultado de la deconvolución proporcionó la respuesta al impulso $$h(t)$$ 
 <br>
 **Figura 4:** Resultados obtenidos por RIR API tras procesamiento.
 
-Las siguientes imagenes reflejan los resultados obtenidos para una señal ingresada. Se obtuvo una curva de Schroeder en la banda de los 1000 Hz donde tanto el $$EDT$$ , el $$T20$$ y $$T30$$ (todas extrapoladas a -60 dB) tienen valores muy cercanos. El gráfico de banco de filtros de octava de la Figura 6 confirma que cada banda cruza a -3 dB en sus flancos. 
+Las siguientes imagenes reflejan los resultados obtenidos para una señal ingresada. Se obtuvo una curva de Schroeder en la banda de los 1000 Hz donde tanto el $$EDT$$ , el $$T20$$ y $$T30$$ (todas extrapoladas a -60 dB) tienen valores muy cercanos. El gráfico de banco de filtros de octava de la Figura 6 confirma que cada banda cruza a -3 dB en sus flancos, según norma IEC 61260. 
 <br>
 <br>
 ![Figura 5: Curva de Schroeder en la banda de 1000 Hz.](public/Curvadeschroeder1000HzAPI.jpeg)
@@ -134,7 +134,7 @@ Las siguientes imagenes reflejan los resultados obtenidos para una señal ingres
 **Figura 7:** Validación de T30 RIR-API vs REW (misma RI).
 <br>
 <br>
-Se hizo una validación del T30 calculado por RIR API al compararlo con el software REW ante la misma RI. Los resultados obtenidos no difieren en más de  $\pm 0.12\text{ s}$ en ninguna banda de frecuencias. El software RIR API muestra alta fiabilidad en los cálculos realizados. La tabla de la Figura 8 demuestra el poco error relativo porcentual en comparación con los resultados del software REW. Tan solo en el cálculo del Early Decay Time en la banda de 500 Hz se dió una diferencia considerable, aunque menor al 20%. 
+Se hizo una validación del T30 calculado por RIR API al compararlo con el software REW ante la misma RI. Los resultados obtenidos no difieren en más de  $\pm 0.12\text{ s}$ en ninguna banda de frecuencias (Figura 7). El software RIR API muestra alta fiabilidad en los cálculos realizados. La tabla de la Figura 8 evidencia el poco error relativo porcentual en comparación con los resultados del software REW. Tan solo en el cálculo del Early Decay Time en la banda de 500 Hz se dió una diferencia notable. 
 <br>
 <br>
 ![Figura 8: Tabla comparativa RIR API vs REW](public/TablacomparativaAPIREW.png)
@@ -149,7 +149,7 @@ Las diferencias entre los resultados puede atribuirse a detalles algorítmicos (
 
 Se logró diseñar, implementar y testear una API REST basada en FastAPI que automatiza de extremo a extremo el flujo de medición acústica bajo la norma ISO 3382 (generación, adquisición, deconvolución, filtrado y cálculo). Se verificó que las señales generadas cumplan con la matemática apropiada (ruido rosa con pendiente - 3 dB por octava y sine sweep logarítmico con su filtro inverso) y que los filtros aplicados cumplan con la norma IEC 61260. La API fue contrastada con un software estándar en la industria demostrando alta confiabilidad, con desviaciones no superiores a  $\pm 0.12\text{ s}$ en todas las bandas de frecuencias. Además, la incorporación del módulo de streaming permite resolver el problema de conversión de datos NaN de NumPy a None de Python. 
 
-La principal limitación encontrada que motiva un trabajo futuro es la de no poder medir el rango audible en su totalidad, cosa que se podría si se aplicaran filtros por tercio de octava. Se podrían desarrollar más algoritmos para la medición de otros parámetros acústicos, como el STI (Speech Transmission Index). 
+La principal limitación encontrada que motiva un trabajo futuro es la de no poder medir el rango audible en su totalidad, cosa que se podría si se aplicaran filtros por tercio de octava. También se podrían desarrollar más algoritmos para la medición de otros parámetros acústicos, como el STI (Speech Transmission Index). 
 
 
 
