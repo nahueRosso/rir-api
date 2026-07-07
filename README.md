@@ -19,8 +19,7 @@ lógica de negocio y exposición HTTP desde el inicio del desarrollo.
 | Nombre completo | Legajo | Rol |
 | --- | --- | --- |
 | Nahuel Rojo | 77440 | Arquitectura / API |
-| Lautaro Ibáñez | 74262 | Generación de señales |
-| Tomás Travaglini | 75714 | Procesamiento de RI |
+| Tomás Travaglini | 75714 | Procesamiento de RI / DSP |
 | Lorenzo D'Uva | 78176 | Testing / CI / Documentación |
 
 ## Requisitos previos
@@ -110,14 +109,16 @@ rir-api/
 │       ├── play_record.py
 │       ├── signal_utils.py
 │       ├── filter.py
-│       └── acoustic_parameters.py
+│       ├── acoustic_parameters.py
+│       └── streaming.py
 ├── tests/
 │   ├── test_api.py
 │   ├── test_placeholder.py
 │   ├── test_generacion.py
-│   ├── test_generation.py
 │   ├── test_procesamiento.py
-│   └── test_analisis.py
+│   ├── test_analisis.py
+│   ├── test_play_record.py
+│   └── test_streaming.py
 ├── docs/
 │   └── validacion/
 └── .github/workflows/ci.yml
@@ -164,8 +165,11 @@ flowchart LR
 
     subgraph STR[Streaming]
         RS[streaming router]
-        RS --> SG
-        RS --> SP
+        SS[services.streaming]
+        RS --> SS
+        SS --> SG
+        SS --> SP
+        SS --> SA
     end
 
     API --> RH
