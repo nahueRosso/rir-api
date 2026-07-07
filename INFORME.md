@@ -1,9 +1,16 @@
 # RIR API
 **Julio 2026**
-
 ---
+Lorenzo D'Uva      -  loloduva123@gmail.com
+<br>
+Enzo Nahuel Rojo   -  enzonahuelrojo000@gmail.com
+<br>
+Tomás Travaglini   -  toto.travaglini@gmail.com
+
 
 ## Abstract
+
+El presente trabajo expone el diseño, la implementación y la validación de **RIR-API**, una interfaz de programación de aplicaciones de código abierto desarrollada en Python mediante FastAPI. La herramienta automatiza el flujo de medición de acústica de salas bajo la norma **ISO 3382**, integrando la generación de señales de excitación (ruido rosa y *sine sweep* logarítmico), la adquisición de audio, el procesamiento de la respuesta al impulso por deconvolución FFT y el cálculo de parámetros temporales y energéticos ($EDT$, $T_{20}$, $T_{30}$, $D_{50}$ y $C_{80}$). La fidelidad de los filtros (**IEC 61260**) y de la regresión sobre la curva de Schroeder se validó experimentalmente frente al software comercial REW. Los resultados demostraron una elevada consistencia matemática, registrando desviaciones absolutas inferiores a $\pm 0.12\text{ s}$ en la estimación del tiempo de reverberación, consolidando a la plataforma como una alternativa robusta y escalable.
 
 <br>
 
@@ -122,9 +129,10 @@ Las siguientes imagenes reflejan los resultados obtenidos para una señal ingres
 **Figura 7:** Validación de T30 RIR-API vs REW (misma RI).
 <br>
 <br>
-Se hizo una validación del T30 calculado por RIR API al compararlo con el software REW ante la misma RI. Los resultados obtenidos no difieren en más de +- 0,12 segundos en ninguna banda de frecuencias. El software RIR API muestra alta fiabilidad en los cálculos realizados. La tabla de la Figura 8 demuestra el poco error relativo porcentual en comparación con los resultados del software REW. Tan solo en el cálculo del Early Decay Time en la banda de 500 Hz se dió una diferencia considerable, aunque menor al 20%. 
-
-![Figura 8: Tabla comparativa RIR API vs REW](TablacomparativaAPIREW.png)
+Se hizo una validación del T30 calculado por RIR API al compararlo con el software REW ante la misma RI. Los resultados obtenidos no difieren en más de  $\pm 0.12\text{ s}$ en ninguna banda de frecuencias. El software RIR API muestra alta fiabilidad en los cálculos realizados. La tabla de la Figura 8 demuestra el poco error relativo porcentual en comparación con los resultados del software REW. Tan solo en el cálculo del Early Decay Time en la banda de 500 Hz se dió una diferencia considerable, aunque menor al 20%. 
+<br>
+<br>
+![Figura 8: Tabla comparativa RIR API vs REW](public/TablacomparativaAPIREW.png)
 <br>
 **Figura 8:** Tabla comparativa RIR API vs REW.
 
@@ -134,7 +142,7 @@ Las diferencias entre los resultados puede atribuirse a detalles algorítmicos (
 
 ## Conclusiones
 
-Se logró diseñar, implementar y testear una API REST basada en FastAPI que automatiza de extremo a extremo el flujo de medición acústica bajo la norma ISO 3382 (generación, adquisición, deconvolución, filtrado y cálculo). Se verificó que las señales generadas cumplan con la matemática apropiada (ruido rosa con pendiente - 3 dB por octava y sine sweep logarítmico con su filtro inverso) y que los filtros aplicados cumplan con la norma IEC 61260. La API fue contrastada con un software estándar en la industria demostrando alta confiabilidad, con desviaciones no superiores a +- 0,12 segundos en todas las bandas de frecuencias. Además, la incorporación del módulo de streaming permite resolver el problema de conversión de datos NaN de NumPy a None de Python. 
+Se logró diseñar, implementar y testear una API REST basada en FastAPI que automatiza de extremo a extremo el flujo de medición acústica bajo la norma ISO 3382 (generación, adquisición, deconvolución, filtrado y cálculo). Se verificó que las señales generadas cumplan con la matemática apropiada (ruido rosa con pendiente - 3 dB por octava y sine sweep logarítmico con su filtro inverso) y que los filtros aplicados cumplan con la norma IEC 61260. La API fue contrastada con un software estándar en la industria demostrando alta confiabilidad, con desviaciones no superiores a  $\pm 0.12\text{ s}$ en todas las bandas de frecuencias. Además, la incorporación del módulo de streaming permite resolver el problema de conversión de datos NaN de NumPy a None de Python. 
 
 La principal limitación encontrada que motiva un trabajo futuro es la de no poder medir el rango audible en su totalidad, cosa que se podría si se aplicaran filtros por tercio de octava. Se podrían desarrollar más algoritmos para la medición de otros parámetros acústicos, como el STI (Speech Transmission Index). 
 
