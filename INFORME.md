@@ -1,6 +1,11 @@
 # RIR API
 **Julio 2026**
+<br>
+**Señales y Sistemas, Ingeniería de Sonido**
+<br>
+**Universidad Nacional de Tres de Febrero, Buenos Aires, Argentina**
 ---
+
 Lorenzo D'Uva      -  loloduva123@gmail.com
 <br>
 Enzo Nahuel Rojo   -  enzonahuelrojo000@gmail.com
